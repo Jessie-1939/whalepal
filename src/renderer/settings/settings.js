@@ -369,8 +369,7 @@
           ['文本记忆（事件）', `${st.eventCount} 条 · ${fmtBytes(st.eventBytes)}（平均 ${st.avgEventBytes} B/条）`],
           ['图片（仅保留最新一张）', st.imageBytes ? `1 张 · ${fmtBytes(st.imageBytes)}` : '未保留'],
           ['单张截图 ≈ 多少条文本记忆', `${st.ratioPerEvent} 条`],
-          ['若按去重后每个事件存图', `${fmtBytes(st.imagePerDayDedup)}/天 · ${fmtBytes(st.imagePerMonthDedup)}/月`],
-          ['若全量存图（不推荐）', `${fmtBytes(st.imagePerDayFull)}/天 · ${fmtBytes(st.imagePerMonthFull)}/月`]
+          ['若按去重后每个事件存图', `${fmtBytes(st.imagePerDayDedup)}/天 · ${fmtBytes(st.imagePerMonthDedup)}/月`]
         ];
         for (const [label, value] of rows) {
           const div = document.createElement('div');
