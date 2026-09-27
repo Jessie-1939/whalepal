@@ -216,6 +216,19 @@ async function bootstrap() {
         fs.writeFileSync(path.join(DATA_ROOT, 'pet-capture.png'), img.toPNG());
         const shot = await capturePrimaryScreen({ width: 1280, height: 720 });
         if (shot) fs.writeFileSync(path.join(DATA_ROOT, 'debug-desktop.jpg'), shot.image.toJPEG(80));
+        if (process.env.WHALEPAL_DEBUG_SETTINGS === '1') {
+          openSettings();
+          const sw = BrowserWindow.getAllWindows().find((w) => w !== petWin);
+          if (sw) {
+            await new Promise((resolve) => {
+              if (sw.webContents.isLoading()) sw.webContents.once('did-finish-load', resolve);
+              else resolve();
+            });
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            const simg = await sw.webContents.capturePage();
+            fs.writeFileSync(path.join(DATA_ROOT, 'settings-capture.png'), simg.toPNG());
+          }
+        }
         console.log('CAPTURE_SAVED');
       } catch (err) {
         console.log('CAPTURE_ERROR ' + String(err?.message || err).slice(0, 300));
