@@ -113,3 +113,22 @@ test('非待机不打盹；夜间睡眠不会被 wake 改成 idle', () => {
   n = run(n, { type: 'wake', hour: 23, quiet: QUIET }).state;
   assert.equal(n.phase, 'sleep');
 });
+
+test('屏幕信号：报错→沮丧反应并回到工作；完成→庆祝反应', () => {
+  let s = core.createWhale(null);
+  s = run(s, { type: 'context', isWorking: true }).state;
+  const err = run(s, { type: 'signal', kind: 'error' });
+  assert.equal(err.state.phase, 'react');
+  assert.equal(err.state.pose, 'failure');
+  assert.ok(err.actions.some((a) => a.type === 'say'));
+  const back = run(err.state, { type: 'react-done' }).state;
+  assert.equal(back.phase, 'work');
+
+  const ok = run(s, { type: 'signal', kind: 'success' });
+  assert.equal(ok.state.pose, 'success');
+  // 拖拽中不打断
+  let d = core.createWhale(null);
+  d = run(d, { type: 'drag-start' }).state;
+  d = run(d, { type: 'signal', kind: 'error' }).state;
+  assert.equal(d.phase, 'drag');
+});

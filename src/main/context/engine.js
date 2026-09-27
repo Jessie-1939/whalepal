@@ -128,6 +128,7 @@ class ContextEngine {
       app: result.app,
       title: aw.title || '',
       isWorking: !!result.isWorking,
+      signal: result.signal || 'none',
       note: result.note || '',
       suggest: result.suggest || '',
       source: result.source,

@@ -3,6 +3,7 @@
   const api = window.whalePal;
   const core = window.WhaleCore;
   const linesLib = window.WhaleLines;
+  const poseMap = window.WhalePoseMap;
   const $ = (id) => document.getElementById(id);
 
   const sprite = $('sprite');
@@ -11,7 +12,7 @@
   const menu = $('menu');
   const pet = $('pet');
 
-  const EMOJI = { idle: '🐋', work: '💻', sleep: '😴', happy: '😊', shy: '😳', eat: '🍰', celebrate: '🎉', carried: '🫧', angry: '💢', walk: '🐋' };
+  const EMOJI = { idle: '🐋', work: '💻', sleep: '😴', happy: '😊', shy: '😳', eat: '🍰', celebrate: '🎉', carried: '🫧', angry: '💢', walk: '🐋', failure: '🥺', success: '✨' };
 
   let cfg = null;
   let workArea = { x: 0, y: 0, width: 1280, height: 720 };
@@ -45,6 +46,9 @@
   let idleActionCount = 0;
   let nextIdleActionAt = performance.now() + 20000 + Math.random() * 30000;
   let lastInteractionAt = Date.now();
+  let lastSignal = 'none';
+  let lastSignalAt = 0;
+  let lastWorkKey = '';
   // 供调试自检读取（无副作用）
   window.__whalePalDebug = {
     get idleActions() {
@@ -81,21 +85,15 @@
   }
 
   // ---------- 姿势 ----------
-  function pickIdleFile() {
-    const list = (poses && poses.idle) || [];
-    if (!list.length) return '';
-    if (idleOverride) {
+  function pickPoseFile(pose) {
+    const list = (poses && poses[pose]) || [];
+    // 待机小动作：动作槽位优先按内容偏好挑选
+    if (pose === 'idle' && idleOverride) {
       const hit = list.find((f) => f.startsWith(idleOverride.name));
       if (hit) return hit;
     }
-    // 基础待机图保持稳定，避免每次重绘都随机跳图
-    return list.find((f) => f.startsWith('idle-cute')) || list[0];
-  }
-
-  function pickPoseFile(pose) {
-    if (pose === 'idle') return pickIdleFile();
-    const list = (poses && poses[pose]) || [];
-    return list.length ? list[Math.floor(Math.random() * list.length)] : '';
+    // work / idle 走确定性映射（同一屏幕内容 → 同一姿势）；互动姿势保留随机
+    return poseMap.chooseFile(pose, lastContext, list, Math.random);
   }
 
   // 动势换图：旧图快速下压 → 在最重的一帧换图 → 新图弹起（点击反应则瞬间切换）
@@ -348,6 +346,14 @@
 
   // 待机小动作调度：原地换图，播放几秒后回到基础待机（不移动窗口）
   function tickIdleActions(now) {
+    if (!cfg.companion.idleActions) {
+      if (idleOverride) {
+        idleOverride = null;
+        currentPose = null;
+        refreshPose(true);
+      }
+      return;
+    }
     if (idleOverride && now >= idleOverride.until) {
       idleOverride = null;
       nextIdleActionAt = now + IDLE_ACTION_MIN_GAP_MS + Math.random() * (IDLE_ACTION_MAX_GAP_MS - IDLE_ACTION_MIN_GAP_MS);
@@ -363,8 +369,11 @@
       nextIdleActionAt = now + 60000;
       return;
     }
+    // 小动作优先贴合当前内容（看视频→摸鱼、游戏→打游戏…），没有偏好再随机
+    const preferred = poseMap.preferredIdleAction(lastContext && lastContext.category);
+    const name = preferred && names.includes(preferred) ? preferred : names[Math.floor(Math.random() * names.length)];
     idleOverride = {
-      name: names[Math.floor(Math.random() * names.length)],
+      name,
       until: now + 4500 + Math.random() * 3500
     };
     idleActionCount += 1;
@@ -378,6 +387,17 @@
     if (state.phase === 'sleep' && state.napAfk) {
       dispatch({ type: 'wake', hour: new Date().getHours(), quiet: cfg.companion.quietHours });
     }
+  }
+
+  // 屏幕信号：报错 / 完成 时给出对应反应（同一信号只反应一次 + 2 分钟冷却，避免花活）
+  function maybeSignalReact(evt) {
+    const sig = evt && evt.signal ? evt.signal : 'none';
+    if (sig === 'none' || sig === lastSignal) return;
+    const now = Date.now();
+    if (now - lastSignalAt < 2 * 60 * 1000) return;
+    lastSignal = sig;
+    lastSignalAt = now;
+    dispatch({ type: 'signal', kind: sig });
   }
 
   // ---------- 鼠标穿透 ----------
@@ -617,7 +637,18 @@
         hour: new Date().getHours(),
         quiet: cfg.companion.quietHours
       });
-      // 闲聊不再随机触发：主动搭话一律由主进程按「工具门控」判断后经 pet:bubble 下发
+      // 同一屏幕内容 → 同一工作姿势；类别变化时才换图（闲聊已改为主进程工具门控下发）
+      if (state.phase === 'work') {
+        const key = String(evt.category || '');
+        if (key !== lastWorkKey) {
+          lastWorkKey = key;
+          currentPose = null;
+          refreshPose(true);
+        }
+      } else {
+        lastWorkKey = '';
+      }
+      maybeSignalReact(evt);
     });
     api.on('care:line', ({ tag }) => dispatch({ type: 'care', tag }));
     api.on('pet:bubble', ({ text, ms, kind }) => showBubble(text, ms || 8000, { record: false, kind }));

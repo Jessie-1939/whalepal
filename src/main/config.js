@@ -24,6 +24,7 @@ const DEFAULTS = {
     bubbles: true,
     care: true,
     proactive: true,
+    idleActions: true,
     quietHours: { start: 23, end: 6 }
   },
   context: {

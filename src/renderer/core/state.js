@@ -276,6 +276,19 @@
         }
         break;
       }
+
+      case 'signal': {
+        // 屏幕信号反应（报错 / 完成）：由 pet.js 去重与冷却后触发，不打断拖拽。
+        if (s.phase === 'drag') break;
+        if (event.kind === 'error') {
+          react('failure', 8000);
+          say(L.signal?.error || [], 8000);
+        } else if (event.kind === 'success') {
+          react('success', 6000);
+          say(L.signal?.success || [], 6000);
+        }
+        break;
+      }
     }
     return { state: s, actions };
   }
