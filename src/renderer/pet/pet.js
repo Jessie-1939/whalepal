@@ -85,8 +85,12 @@
   }
 
   // ---------- 气泡 / 特效 ----------
-  function showBubble(text, ms = 5000) {
+  function showBubble(text, ms = 5000, opts = {}) {
     if (!cfg || !cfg.companion.bubbles || !text) return;
+    // 说出口的话进对话记忆，保证之后的问答/主动搭话「记得自己刚说过什么」
+    if (opts.record !== false) {
+      api.invoke('dialogue:record', { role: 'pet', kind: opts.kind || 'bubble', text });
+    }
     bubble.textContent = text;
     bubble.classList.add('show');
     clearTimeout(bubbleTimer);
@@ -117,6 +121,11 @@
   function scheduleSave() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => api.invoke('growth:save', state), 1500);
+  }
+
+  // 主人的关键互动也进对话记忆（供主动搭话判断「主人有没有在理我」）
+  function noteUserAction(text) {
+    api.invoke('dialogue:record', { role: 'user', kind: 'action', text });
   }
 
   function runAction(a) {
@@ -303,10 +312,13 @@
     const now = performance.now();
     clicks.push(now);
     while (clicks.length && now - clicks[0] > 1200) clicks.shift();
-    dispatch({ type: 'click', zone: zoneFromEvent(e) });
+    const zone = zoneFromEvent(e);
+    dispatch({ type: 'click', zone });
+    noteUserAction(`摸了摸小鲸的${zone === 'head' ? '头' : zone === 'belly' ? '肚子' : '尾巴'}`);
     if (clicks.length >= 3) {
       clicks.length = 0;
       dispatch({ type: 'triple' });
+      noteUserAction('连点了小鲸三次');
     }
   }
 
@@ -362,6 +374,7 @@
         hour: new Date().getHours(),
         quiet: cfg.companion.quietHours
       });
+      noteUserAction('把小鲸拎起来搬了个家');
     } else {
       registerClick(e);
     }
@@ -376,12 +389,15 @@
         break;
       case 'feed':
         dispatch({ type: 'feed' });
+        noteUserAction('投喂了小鲸一份小点心');
         break;
       case 'praise':
         dispatch({ type: 'praise' });
+        noteUserAction('夸了夸小鲸');
         break;
       case 'poke':
         dispatch({ type: 'poke' });
+        noteUserAction('戳了小鲸一下');
         break;
       case 'summary':
         askSummary();
@@ -479,11 +495,10 @@
         hour: new Date().getHours(),
         quiet: cfg.companion.quietHours
       });
-      if (cfg.companion.bubbles && !evt.isWorking && !isQuiet() && Math.random() < 0.3) {
-        dispatch({ type: 'chatter', category: evt.category });
-      }
+      // 闲聊不再随机触发：主动搭话一律由主进程按「工具门控」判断后经 pet:bubble 下发
     });
     api.on('care:line', ({ tag }) => dispatch({ type: 'care', tag }));
+    api.on('pet:bubble', ({ text, ms, kind }) => showBubble(text, ms || 8000, { record: false, kind }));
     api.on('config:changed', (c) => {
       cfg = c;
     });

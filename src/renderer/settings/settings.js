@@ -46,6 +46,7 @@
     $('#c-walk').checked = cfg.companion.walk;
     $('#c-bubbles').checked = cfg.companion.bubbles;
     $('#c-care').checked = cfg.companion.care;
+    $('#c-proactive').checked = cfg.companion.proactive !== false;
     $('#c-quiet-start').value = cfg.companion.quietHours.start;
     $('#c-quiet-end').value = cfg.companion.quietHours.end;
 
@@ -55,6 +56,7 @@
     $('#c-walk').addEventListener('change', (e) => save({ companion: { walk: e.target.checked } }));
     $('#c-bubbles').addEventListener('change', (e) => save({ companion: { bubbles: e.target.checked } }));
     $('#c-care').addEventListener('change', (e) => save({ companion: { care: e.target.checked } }));
+    $('#c-proactive').addEventListener('change', (e) => save({ companion: { proactive: e.target.checked } }));
     const saveQuiet = () =>
       save({
         companion: {

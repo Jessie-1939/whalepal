@@ -5,6 +5,8 @@ const { app, BrowserWindow, protocol, shell } = require('electron');
 const { relocateElectronPaths, ensureDirs, DATA_ROOT, APP_ROOT, files } = require('./paths');
 const { ConfigStore } = require('./config');
 const { EventStore } = require('./context/store');
+const { DialogueStore } = require('./context/dialogue');
+const { evaluateProactiveGates, decideWithModel, TIMEOUT_LINE } = require('./context/proactive');
 const { ContextEngine } = require('./context/engine');
 const { CareManager } = require('./context/care');
 const { capturePrimaryScreen } = require('./context/capture');
@@ -75,6 +77,7 @@ if (!gotLock) {
       }
       rt?.engine?.stop();
       rt?.care?.stop();
+      if (rt?.proactiveTimer) clearInterval(rt.proactiveTimer);
     } catch {
       // 退出路径尽力而为
     }
@@ -86,6 +89,7 @@ async function bootstrap() {
   const configStore = new ConfigStore(files().config);
   const cfg = configStore.get();
   const store = new EventStore(files().events, cfg.context.maxEvents);
+  const dialogue = new DialogueStore(files().dialogue, 400);
   const poses = scanPoses(PET_ASSETS);
 
   registerAssetProtocol({ assets: PET_ASSETS, data: DATA_ROOT });
@@ -141,9 +145,37 @@ async function bootstrap() {
     }
   });
 
+  // 主动搭话：默认沉默；只有云端模型显式调用 send_message 工具才会发送。
+  const runProactive = async () => {
+    const c = configStore.get();
+    const now = Date.now();
+    const gate = evaluateProactiveGates({
+      cfg: c,
+      now,
+      hour: new Date().getHours(),
+      lastEvent: engine.lastEvent,
+      dialogue,
+      hasKey: !!(c.model.apiKey && c.model.model && c.model.baseUrl)
+    });
+    if (!gate.allow) return { sent: false, reason: gate.reason };
+    if (gate.mode === 'timeout') {
+      dialogue.append({ role: 'pet', kind: 'timeout', text: TIMEOUT_LINE });
+      broadcast('pet:bubble', { text: TIMEOUT_LINE, ms: 6000, kind: 'timeout' });
+      return { sent: true, mode: 'timeout' };
+    }
+    const decision = await decideWithModel({ cfg: c, store, dialogue });
+    if (decision.send) {
+      dialogue.append({ role: 'pet', kind: 'proactive', text: decision.text });
+      broadcast('pet:bubble', { text: decision.text, ms: 8000, kind: 'proactive' });
+      return { sent: true, mode: 'model', text: decision.text };
+    }
+    return { sent: false, reason: decision.reason };
+  };
+
   rt = {
     configStore,
     store,
+    dialogue,
     engine,
     care,
     poses,
@@ -162,13 +194,17 @@ async function bootstrap() {
       const size = JSON.stringify(payload).length;
       if (size > 256 * 1024) return false;
       return writeJson(files().growth, payload);
-    }
+    },
+    runProactive
   };
 
   registerIpc(rt);
 
   engine.start();
   care.start();
+  rt.proactiveTimer = setInterval(() => {
+    runProactive().catch(() => {});
+  }, 5 * 60 * 1000);
 
   rt.tray = createTray({
     candidates: [

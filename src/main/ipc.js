@@ -3,7 +3,7 @@ const { workAreaFor, PET_W, PET_H } = require('./windows');
 const chat = require('./context/chat');
 
 function registerIpc(rt) {
-  const { configStore, store, engine, DATA_ROOT, APP_ROOT, broadcast } = rt;
+  const { configStore, store, engine, dialogue, DATA_ROOT, APP_ROOT, broadcast } = rt;
 
   // ---- 配置 ----
   ipcMain.handle('config:get', () => configStore.get());
@@ -62,18 +62,25 @@ function registerIpc(rt) {
     usage: engine.usage,
     busyMinutes: engine.busyMinutes()
   }));
-  ipcMain.handle('context:summary', async () => chat.summary({ store, cfg: configStore.get() }));
+  ipcMain.handle('context:summary', async () => chat.summary({ store, cfg: configStore.get(), dialogue }));
 
   // ---- 对话与模型 ----
   ipcMain.handle('chat:ask', async (_e, question) => {
     broadcast('companion:asked', true);
-    return chat.ask(question, { store, cfg: configStore.get() });
+    const res = await chat.ask(question, { store, cfg: configStore.get(), dialogue });
+    dialogue.append({ role: 'user', kind: 'chat', text: String(question || '') });
+    dialogue.append({ role: 'pet', kind: 'chat-reply', text: res.answer });
+    return res;
   });
   ipcMain.handle('model:test', () => chat.testModel(configStore.get()));
+
+  // ---- 对话记忆（渲染层每次说出可见台词/关键互动时调用）----
+  ipcMain.handle('dialogue:record', (_e, entry) => dialogue.append(entry || {}));
 
   // ---- 数据与系统 ----
   ipcMain.handle('data:clear', () => {
     store.clear();
+    dialogue.clear();
     return true;
   });
   ipcMain.handle('data:info', () => ({ dataDir: DATA_ROOT, appRoot: APP_ROOT }));

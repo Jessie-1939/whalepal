@@ -1,8 +1,9 @@
 /**
  * 上下文问答与今日摘要。
- * 有云端模型：把精简后的活动记录交给模型回答；
- * 无模型 / 调用失败：基于本地事件记录做模板化整理（这不是模型分析）。
+ * - 有云端模型：带人设（persona.js）与对话记忆（dialogue.js）交给模型组织语言；
+ * - 无模型 / 调用失败：基于本地事件记录做模板化整理（这不是模型分析）。
  */
+const { personaSystemPrompt } = require('./persona');
 
 async function fetchWithTimeout(url, options, timeoutMs) {
   const ctrl = new AbortController();
@@ -14,14 +15,15 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
-async function cloudChat(messages, cfg, { timeoutMs = 20000, temperature = 0.5 } = {}) {
+/** 底层调用：POST {baseUrl}/chat/completions，返回解析后的响应 JSON（支持 tools 等任意参数）。 */
+async function chatCompletion(payload, cfg, { timeoutMs = 20000 } = {}) {
   const base = String(cfg.model.baseUrl || '').replace(/\/+$/, '');
   const resp = await fetchWithTimeout(
     `${base}/chat/completions`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.model.apiKey}` },
-      body: JSON.stringify({ model: cfg.model.model, temperature, messages })
+      body: JSON.stringify(payload)
     },
     timeoutMs
   );
@@ -29,7 +31,11 @@ async function cloudChat(messages, cfg, { timeoutMs = 20000, temperature = 0.5 }
     const text = await resp.text().catch(() => '');
     throw new Error(`HTTP ${resp.status} ${text.slice(0, 160)}`);
   }
-  const data = await resp.json();
+  return resp.json();
+}
+
+async function cloudChat(messages, cfg, { timeoutMs = 20000, temperature = 0.5 } = {}) {
+  const data = await chatCompletion({ model: cfg.model.model, temperature, messages }, cfg, { timeoutMs });
   const content = data?.choices?.[0]?.message?.content;
   if (!content) throw new Error('云端返回为空');
   return String(content).trim();
@@ -45,8 +51,13 @@ function slimEvents(events) {
   }));
 }
 
-function fmt(n) {
-  return String(n).padStart(2, '0');
+function dialogueLines(dialogue, n = 12) {
+  if (!dialogue) return '（还没有对话记录）';
+  const lines = dialogue
+    .recent(n)
+    .filter((e) => e.kind !== 'skip')
+    .map((e) => `${e.role === 'user' ? '主人' : '鲸鱼娘'}：${e.text}`);
+  return lines.join('\n') || '（还没有对话记录）';
 }
 
 function topApps(today, limit = 3) {
@@ -80,6 +91,10 @@ function recordsSummary(store) {
 
 function recordsAnswer(question, store) {
   const q = String(question || '').trim();
+  // 人设规则：绝不被说胖（TRAIT_NOT_FAT_REFUSE）
+  if (/胖|肥|圆润|圆了/.test(q)) {
+    return '哼！鲸鱼娘才不胖，只是毛茸茸而已。（甩甩尾巴）……再说就不理你了。';
+  }
   const today = store.today();
   if (!today.length) {
     return '我今天还没记录到活动呢。等你忙起来，再来问我「刚才在干嘛」就有答案了～';
@@ -97,28 +112,31 @@ function recordsAnswer(question, store) {
   return `${head}\n${recordsSummary(store)}`;
 }
 
-async function cloudAnswer(question, store, cfg) {
+async function cloudAnswer(question, store, cfg, dialogue) {
   const recent = slimEvents(store.readRecent(24));
   const today = slimEvents(store.today().slice(-40));
   const messages = [
     {
       role: 'system',
-      content:
-        '你是桌面伙伴「小鲸」。下面给出主人的屏幕活动记录（JSON，已脱敏，不含聊天内容与密钥）。' +
-        '请用中文温柔、简短地回答（不超过 120 字），不要编造记录里没有的事；记录不足时直说并给一个小建议。'
+      content: `${personaSystemPrompt({ userName: cfg.companion.name, selfName: cfg.companion.selfName })}
+
+【任务】根据主人的屏幕活动记录回答问题。回答不超过 120 字；不要编造记录里没有的事；记录不足时直说并给一个小建议；不要重复你最近刚刚说过的话；如果之前问过的问题主人没有回应，不要再追问。`
     },
-    { role: 'user', content: `今日记录：${JSON.stringify(today)}\n最近记录：${JSON.stringify(recent)}\n\n问题：${question}` }
+    {
+      role: 'user',
+      content: `今日记录：${JSON.stringify(today)}\n最近记录：${JSON.stringify(recent)}\n最近对话：\n${dialogueLines(dialogue)}\n\n问题：${question}`
+    }
   ];
   return cloudChat(messages, cfg);
 }
 
-async function ask(question, { store, cfg }) {
+async function ask(question, { store, cfg, dialogue }) {
   const q = String(question || '').trim();
   if (!q) return { answer: '你想问什么都可以，比如「我刚才在干嘛」。', source: 'records' };
   const cloudReady = !!(cfg?.model?.apiKey && cfg?.model?.model && cfg?.model?.baseUrl);
   if (cloudReady) {
     try {
-      return { answer: await cloudAnswer(q, store, cfg), source: 'cloud' };
+      return { answer: await cloudAnswer(q, store, cfg, dialogue), source: 'cloud' };
     } catch (err) {
       return {
         answer: `${recordsAnswer(q, store)}\n\n（云端模型暂时联系不上：${String(err?.message || err).slice(0, 80)}）`,
@@ -129,25 +147,25 @@ async function ask(question, { store, cfg }) {
   return { answer: recordsAnswer(q, store), source: 'records' };
 }
 
-async function cloudSummary(store, cfg) {
+async function cloudSummary(store, cfg, dialogue) {
   const today = slimEvents(store.today().slice(-60));
   const messages = [
     {
       role: 'system',
-      content:
-        '你是桌面伙伴「小鲸」。请把主人今天的屏幕活动记录整理成 3-6 条中文要点（可用 emoji 开头），' +
-        '覆盖：时间线、专注时长体感、主要应用分布、一句温柔的提醒。不要编造记录外的事实，不超过 200 字。'
+      content: `${personaSystemPrompt({ userName: cfg.companion.name, selfName: cfg.companion.selfName })}
+
+【任务】把主人今天的屏幕活动记录整理成 3-6 条中文要点（可用 emoji 开头），覆盖：时间线、专注时长体感、主要应用分布、一句温柔的提醒。不要编造记录外的事实，不超过 200 字。`
     },
-    { role: 'user', content: `今日记录：${JSON.stringify(today)}` }
+    { role: 'user', content: `今日记录：${JSON.stringify(today)}\n最近对话：\n${dialogueLines(dialogue, 8)}` }
   ];
   return cloudChat(messages, cfg, { temperature: 0.4 });
 }
 
-async function summary({ store, cfg }) {
+async function summary({ store, cfg, dialogue }) {
   const cloudReady = !!(cfg?.model?.apiKey && cfg?.model?.model && cfg?.model?.baseUrl);
   if (cloudReady) {
     try {
-      return { text: await cloudSummary(store, cfg), source: 'cloud' };
+      return { text: await cloudSummary(store, cfg, dialogue), source: 'cloud' };
     } catch (err) {
       return {
         text: `${recordsSummary(store)}\n\n（云端模型暂时联系不上：${String(err?.message || err).slice(0, 80)}）`,
@@ -169,4 +187,13 @@ async function testModel(cfg) {
   }
 }
 
-module.exports = { ask, summary, testModel, recordsSummary, recordsAnswer, cloudChat };
+module.exports = {
+  chatCompletion,
+  ask,
+  summary,
+  testModel,
+  recordsSummary,
+  recordsAnswer,
+  cloudChat,
+  dialogueLines
+};

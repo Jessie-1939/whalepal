@@ -16,6 +16,7 @@ const DEFAULTS = {
     walk: true,
     bubbles: true,
     care: true,
+    proactive: true,
     quietHours: { start: 23, end: 6 }
   },
   context: {
