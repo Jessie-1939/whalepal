@@ -11,11 +11,14 @@
     "test": "node --test \"test/*.test.mjs\"",
     "check": "node scripts/check-syntax.mjs",
     "privacy": "node scripts/privacy-audit.mjs",
+    "gif": "node scripts/make-readme-gif.mjs",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win"
   },
   "devDependencies": {
     "electron": "^37.2.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "gifenc": "^1.0.3",
+    "pngjs": "^7.0.0"
   }
 }

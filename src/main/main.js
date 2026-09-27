@@ -360,4 +360,25 @@ async function bootstrap() {
       setTimeout(() => app.quit(), 1500);
     }, 4000);
   }
+
+  // README 动图素材：WHALEPAL_DEBUG_FRAMES=<帧数> 时按固定间隔抓取桌宠窗口内容帧
+  if (process.env.WHALEPAL_DEBUG_FRAMES) {
+    const count = Math.max(2, Number(process.env.WHALEPAL_DEBUG_FRAMES) || 12);
+    const intervalMs = Number(process.env.WHALEPAL_DEBUG_FRAME_MS) || 350;
+    const outDir = path.join(DATA_ROOT, 'gif-frames');
+    fs.mkdirSync(outDir, { recursive: true });
+    setTimeout(async () => {
+      for (let i = 0; i < count; i++) {
+        try {
+          const img = await petWin.webContents.capturePage();
+          fs.writeFileSync(path.join(outDir, `frame-${String(i).padStart(2, '0')}.png`), img.toPNG());
+        } catch {
+          // 忽略
+        }
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+      console.log('FRAMES_SAVED ' + outDir);
+      app.quit();
+    }, 3000);
+  }
 }
