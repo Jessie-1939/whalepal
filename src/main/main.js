@@ -247,6 +247,14 @@ async function bootstrap() {
 
   // 窗口自检：WHALEPAL_DEBUG_CAPTURE=1 时打印坐标并抓取桌宠窗口内容后退出
   if (process.env.WHALEPAL_DEBUG_CAPTURE === '1') {
+    setTimeout(() => {
+      try {
+        console.log('PETBOUNDS_START ' + JSON.stringify(petWin.getBounds()));
+      } catch {
+        // 忽略
+      }
+    }, 1500);
+    const delay = Number(process.env.WHALEPAL_DEBUG_DELAY_MS) || 4000;
     setTimeout(async () => {
       try {
         const { screen } = require('electron');
@@ -261,6 +269,8 @@ async function bootstrap() {
             innerH: innerHeight,
             bubbleTop: getComputedStyle(document.getElementById('bubble')).top,
             bubbleText: document.getElementById('bubble').textContent.slice(0, 16),
+            idleActions: (window.__whalePalDebug && window.__whalePalDebug.idleActions) || 0,
+            spriteSrc: (document.getElementById('sprite').getAttribute('src') || '').split('/').slice(-2).join('/'),
             spriteBox: (() => {
               const el = !document.getElementById('sprite').hidden ? document.getElementById('sprite') : document.getElementById('sprite-emoji');
               const r = el.getBoundingClientRect();
@@ -291,6 +301,6 @@ async function bootstrap() {
         console.log('CAPTURE_ERROR ' + String(err?.message || err).slice(0, 300));
       }
       app.quit();
-    }, 4000);
+    }, delay);
   }
 }

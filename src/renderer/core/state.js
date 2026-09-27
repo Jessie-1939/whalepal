@@ -54,7 +54,10 @@
       companionMs: 0,
       achievements: {},
       diary: [],
-      lastReactionAt: 0
+      lastReactionAt: 0,
+      // AFK 打盹（参考 dsh-whale-musume 的 afk 状态）：无互动 3 分钟后原地小睡，
+      // 任一互动即唤醒；夜间睡眠不算 napAfk，不会被互动"叫醒"到 idle。
+      napAfk: false
     };
     const merged = Object.assign(base, (initial && { ...initial }) || {});
     merged.achievements = Object.assign({}, (initial && initial.achievements) || {});
@@ -108,6 +111,7 @@
     switch (event.type) {
       case 'context': {
         if (s.phase === 'drag' || s.phase === 'react') break;
+        s.napAfk = false;
         if (event.isWorking) {
           s.prevMain = 'work';
           s.phase = 'work';
@@ -132,7 +136,35 @@
             s.phase = main;
             s.pose = main;
             s.prevMain = main;
+            s.napAfk = false;
             actions.push({ type: 'pose', pose: main });
+          }
+        }
+        break;
+      }
+
+      case 'nap': {
+        // 无互动打盹：仅在待机时进入
+        if (s.phase === 'idle') {
+          s.phase = 'sleep';
+          s.pose = 'sleep';
+          s.prevMain = 'sleep';
+          s.napAfk = true;
+          actions.push({ type: 'pose', pose: 'sleep' });
+        }
+        break;
+      }
+
+      case 'wake': {
+        // 被互动唤醒：只从 AFK 打盹中醒来（夜间睡眠不受影响）
+        if (s.phase === 'sleep' && s.napAfk) {
+          const main = mainFor(event.hour ?? new Date().getHours(), event.quiet);
+          s.napAfk = false;
+          if (main === 'idle') {
+            s.phase = 'idle';
+            s.pose = 'idle';
+            s.prevMain = 'idle';
+            actions.push({ type: 'pose', pose: 'idle' });
           }
         }
         break;
@@ -148,6 +180,7 @@
 
       case 'drag-end': {
         const main = event.stillWorking ? 'work' : mainFor(event.hour ?? new Date().getHours(), event.quiet);
+        s.napAfk = false;
         s.phase = main;
         s.pose = main === 'work' ? 'work' : main;
         s.prevMain = main;

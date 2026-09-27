@@ -18,7 +18,7 @@ const DEFAULTS = {
     visible: true,
     name: '主人',
     selfName: '小鲸',
-    walk: true,
+    walk: false,
     bubbles: true,
     care: true,
     proactive: true,

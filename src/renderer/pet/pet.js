@@ -31,6 +31,27 @@
   const clicks = [];
   const wander = { mode: 'pause', until: 0, vx: 0, vy: 0, turnAt: 0 };
 
+  // ── 行为节奏（参考 dsh-whale-musume）──
+  // 待机小动作：不移动，只在原地换姿势图（喝咖啡 / 伸懒腰 / 摸鱼…）
+  const IDLE_ACTION_NAMES = [
+    'daily-coffee', 'daily-stretch', 'daily-fishing', 'daily-picnic', 'daily-eat',
+    'daily-cooking', 'daily-pajama', 'daily-shower', 'daily-painting', 'daily-gaming',
+    'meme-music', 'cool-shades', 'wink', 'curious', 'greet'
+  ];
+  const IDLE_ACTION_MIN_GAP_MS = 45 * 1000;
+  const IDLE_ACTION_MAX_GAP_MS = 110 * 1000;
+  const AFK_MS = 3 * 60 * 1000; // 3 分钟无互动 → 原地打盹
+  let idleOverride = null; // { name, until }
+  let idleActionCount = 0;
+  let nextIdleActionAt = performance.now() + 20000 + Math.random() * 30000;
+  let lastInteractionAt = Date.now();
+  // 供调试自检读取（无副作用）
+  window.__whalePalDebug = {
+    get idleActions() {
+      return idleActionCount;
+    }
+  };
+
   const W = () => window.innerWidth;
   const H = () => window.innerHeight;
 
@@ -60,16 +81,67 @@
   }
 
   // ---------- 姿势 ----------
-  function applyPose(pose) {
+  function pickIdleFile() {
+    const list = (poses && poses.idle) || [];
+    if (!list.length) return '';
+    if (idleOverride) {
+      const hit = list.find((f) => f.startsWith(idleOverride.name));
+      if (hit) return hit;
+    }
+    // 基础待机图保持稳定，避免每次重绘都随机跳图
+    return list.find((f) => f.startsWith('idle-cute')) || list[0];
+  }
+
+  function pickPoseFile(pose) {
+    if (pose === 'idle') return pickIdleFile();
+    const list = (poses && poses[pose]) || [];
+    return list.length ? list[Math.floor(Math.random() * list.length)] : '';
+  }
+
+  // 动势换图：旧图快速下压 → 在最重的一帧换图 → 新图弹起（点击反应则瞬间切换）
+  function swapSprite(src, soft) {
+    if (!soft || !sprite.getAttribute('src')) {
+      sprite.src = src;
+      return;
+    }
+    try {
+      sprite.getAnimations().forEach((a) => a.cancel());
+      const down = sprite.animate(
+        [
+          { transform: 'translateY(0) scale(1)' },
+          { transform: 'translateY(12px) scale(0.86, 0.92)' }
+        ],
+        { duration: 110, easing: 'ease-in', fill: 'forwards' }
+      );
+      down.finished
+        .then(() => {
+          down.cancel();
+          sprite.src = src;
+          sprite.animate(
+            [
+              { transform: 'translateY(18px) scale(0.88, 0.94)' },
+              { transform: 'translateY(0) scale(1)' }
+            ],
+            { duration: 240, easing: 'cubic-bezier(.34,1.3,.64,1)' }
+          );
+        })
+        .catch(() => {
+          sprite.src = src;
+        });
+    } catch {
+      sprite.src = src;
+    }
+  }
+
+  function applyPose(pose, soft = true) {
     if (currentPose === pose) return;
     currentPose = pose;
     document.body.dataset.pose = pose;
-    const list = (poses && poses[pose]) || [];
-    if (list.length) {
-      const file = list[Math.floor(Math.random() * list.length)];
-      sprite.src = `whalepal://assets/poses/${pose}/${encodeURIComponent(file)}`;
+    const file = pickPoseFile(pose);
+    if (file) {
       sprite.hidden = false;
       emoji.hidden = true;
+      swapSprite(`whalepal://assets/poses/${pose}/${encodeURIComponent(file)}`, soft);
     } else {
       sprite.hidden = true;
       emoji.hidden = false;
@@ -80,8 +152,8 @@
 
   sprite.addEventListener('load', measureBox);
 
-  function refreshPose() {
-    applyPose(visualWalk && state.phase === 'idle' ? 'walk' : state.pose);
+  function refreshPose(soft = true) {
+    applyPose(visualWalk && state.phase === 'idle' ? 'walk' : state.pose, soft);
   }
 
   // ---------- 气泡 / 特效 ----------
@@ -131,7 +203,8 @@
   function runAction(a) {
     switch (a.type) {
       case 'pose':
-        refreshPose();
+        // 点击/互动反应瞬间切换；状态类切换（工作/待机/打盹）走动势过渡
+        refreshPose(state.phase !== 'react');
         break;
       case 'say':
         showBubble(a.text, a.ms);
@@ -269,7 +342,42 @@
     lastFrame = now;
     tickWander(now, dt);
     tickGlide(now);
+    tickIdleActions(now);
     requestAnimationFrame(frame);
+  }
+
+  // 待机小动作调度：原地换图，播放几秒后回到基础待机（不移动窗口）
+  function tickIdleActions(now) {
+    if (idleOverride && now >= idleOverride.until) {
+      idleOverride = null;
+      nextIdleActionAt = now + IDLE_ACTION_MIN_GAP_MS + Math.random() * (IDLE_ACTION_MAX_GAP_MS - IDLE_ACTION_MIN_GAP_MS);
+      currentPose = null;
+      refreshPose(true);
+      return;
+    }
+    if (idleOverride || now < nextIdleActionAt) return;
+    if (state.phase !== 'idle' || dragging || glide || visualWalk) return;
+    const list = (poses && poses.idle) || [];
+    const names = IDLE_ACTION_NAMES.filter((n) => list.some((f) => f.startsWith(n)));
+    if (!names.length) {
+      nextIdleActionAt = now + 60000;
+      return;
+    }
+    idleOverride = {
+      name: names[Math.floor(Math.random() * names.length)],
+      until: now + 4500 + Math.random() * 3500
+    };
+    idleActionCount += 1;
+    currentPose = null;
+    refreshPose(true);
+  }
+
+  // 互动时间戳 + 从打盹中唤醒（参考 afk 逻辑：夜间睡眠不受影响）
+  function markInteraction() {
+    lastInteractionAt = Date.now();
+    if (state.phase === 'sleep' && state.napAfk) {
+      dispatch({ type: 'wake', hour: new Date().getHours(), quiet: cfg.companion.quietHours });
+    }
   }
 
   // ---------- 鼠标穿透 ----------
@@ -309,6 +417,7 @@
   }
 
   function registerClick(e) {
+    markInteraction();
     const now = performance.now();
     clicks.push(now);
     while (clicks.length && now - clicks[0] > 1200) clicks.shift();
@@ -325,6 +434,7 @@
   pet.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    markInteraction();
     dragging = true;
     drag = { sx: e.screenX, sy: e.screenY, wx: pos.x, wy: pos.y, moved: false, samples: [] };
     api.invoke('pet:set-ignore-mouse', false);
@@ -383,6 +493,7 @@
 
   // ---------- 右键菜单 ----------
   function doMenuAction(action) {
+    markInteraction();
     switch (action) {
       case 'pat':
         dispatch({ type: 'click', zone: 'head' });
@@ -488,6 +599,14 @@
 
     setInterval(() => {
       dispatch({ type: 'tick', hour: new Date().getHours(), quiet: cfg.companion.quietHours, deltaMs: 30000 });
+      // 参考 afk 逻辑：3 分钟无互动且主人不在工作 → 原地打盹（不移动）
+      if (
+        state.phase === 'idle' &&
+        !(lastContext && lastContext.isWorking) &&
+        Date.now() - lastInteractionAt > AFK_MS
+      ) {
+        dispatch({ type: 'nap' });
+      }
     }, 30000);
 
     api.on('context:update', (evt) => {
@@ -505,7 +624,10 @@
     api.on('config:changed', (c) => {
       cfg = c;
     });
-    api.on('companion:asked', () => dispatch({ type: 'asked' }));
+    api.on('companion:asked', () => {
+      markInteraction();
+      dispatch({ type: 'asked' });
+    });
 
     window.addEventListener('resize', () => {
       pos = clampPos(pos);

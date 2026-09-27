@@ -88,3 +88,28 @@ test('台词库池非空且 pick 行为稳定', () => {
   assert.equal(linesLib.pick(['a'], () => 0.99), 'a');
   assert.equal(linesLib.pick([], () => 0.5), '');
 });
+
+test('AFK：待机时打盹，互动后唤醒回待机', () => {
+  let s = core.createWhale(null);
+  s = run(s, { type: 'nap' }).state;
+  assert.equal(s.phase, 'sleep');
+  assert.equal(s.pose, 'sleep');
+  assert.equal(s.napAfk, true);
+  s = run(s, { type: 'wake', hour: 12, quiet: QUIET }).state;
+  assert.equal(s.phase, 'idle');
+  assert.equal(s.napAfk, false);
+});
+
+test('非待机不打盹；夜间睡眠不会被 wake 改成 idle', () => {
+  let w = core.createWhale(null);
+  w = run(w, { type: 'context', isWorking: true }).state;
+  w = run(w, { type: 'nap' }).state;
+  assert.equal(w.phase, 'work');
+
+  let n = core.createWhale(null);
+  n = run(n, { type: 'tick', hour: 23, deltaMs: 0, quiet: QUIET }).state;
+  assert.equal(n.phase, 'sleep');
+  assert.equal(n.napAfk, false);
+  n = run(n, { type: 'wake', hour: 23, quiet: QUIET }).state;
+  assert.equal(n.phase, 'sleep');
+});
