@@ -45,3 +45,15 @@ test('左右分区与上下分区差异明显', () => {
   const d = dh.hammingDistance(dh.dHashFromBitmap(leftRight, 64, 64), dh.dHashFromBitmap(topBottom, 64, 64));
   assert.ok(d >= 8, `expected distance >= 8, got ${d}`);
 });
+
+test('findSimilarHash：窗口命中（A/B/A 场景）并做 LRU 提升', () => {
+  const a = dh.dHashFromBitmap(makeBuf(64, 64, (x) => (x < 32 ? 255 : 0)), 64, 64);
+  const b = dh.dHashFromBitmap(makeBuf(64, 64, (_x, y) => (y < 32 ? 255 : 0)), 64, 64);
+  const windowHashes = [a, b];
+  const idx = dh.findSimilarHash(a, windowHashes, 4);
+  assert.equal(idx, 1);
+  assert.equal(windowHashes[1], a);
+  const r = prng(7);
+  const c = dh.dHashFromBitmap(makeBuf(64, 64, () => Math.floor(r() * 256)), 64, 64);
+  assert.equal(dh.findSimilarHash(c, windowHashes, 4), -1);
+});

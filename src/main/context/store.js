@@ -56,14 +56,41 @@ class EventStore {
     return this._parseLines(this._lines().slice(-n));
   }
 
+  /** 按日期区间读取（YYYY-MM-DD 闭区间，字符串比较即可）。 */
+  readRange(fromKey, toKey) {
+    const lines = this._lines().filter((line) => {
+      const m = /"date":"(\d{4}-\d{2}-\d{2})"/.exec(line);
+      return m && m[1] >= fromKey && m[1] <= toKey;
+    });
+    return this._parseLines(lines);
+  }
+
+  dayEvents(dateKey) {
+    return this.readRange(dateKey, dateKey);
+  }
+
   today() {
-    const key = localDateKey();
-    return this._parseLines(this._lines().filter((l) => l.includes(`"date":"${key}"`)));
+    return this.dayEvents(localDateKey());
+  }
+
+  /** 更新最后一条事件（用于驻留时长累积），整文件重写一行。 */
+  updateLast(patch) {
+    const lines = this._lines();
+    if (!lines.length) return false;
+    try {
+      const last = JSON.parse(lines[lines.length - 1]);
+      lines[lines.length - 1] = JSON.stringify({ ...last, ...patch });
+      fs.writeFileSync(this.file, lines.join('\n') + '\n');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   stats() {
     const today = this.today();
     const byApp = {};
+    const workingMs = today.reduce((sum, e) => sum + (Number(e.durationMs) > 0 ? Number(e.durationMs) : 0), 0);
     for (const e of today) {
       const app = e.app || '未知';
       byApp[app] = (byApp[app] || 0) + 1;
@@ -72,6 +99,7 @@ class EventStore {
       total: this.count,
       todayCount: today.length,
       workingCount: today.filter((e) => e.isWorking).length,
+      workingMinutes: Math.round(workingMs / 60000),
       byApp
     };
   }

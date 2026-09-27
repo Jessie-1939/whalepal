@@ -1,12 +1,17 @@
 const fs = require('node:fs');
 const { clamp } = require('../config');
-const { dHashFromBitmap, hammingDistance } = require('./dhash');
+const { dHashFromBitmap, findSimilarHash } = require('./dhash');
 const { analyze } = require('./analyzer');
 const { localDateKey } = require('./store');
 
+// 画面相似判定：与「最近多张」指纹比对（借鉴 MineContext 的窗口去重思路，阈值取其 2 与常见 6 之间）
+const SIMILARITY_THRESHOLD = 4;
+const HASH_WINDOW = 6;
+
 /**
- * 上下文引擎：定时截屏 → 感知哈希去重 → 云端模型分析（无 Key 时基础感知降级）
+ * 上下文引擎：定时截屏 → 感知哈希窗口去重 → 云端模型分析（无 Key 时基础感知降级）
  * → 事件存储（data/events.jsonl）→ 广播给桌宠与设置窗口。
+ * 画面未变化的轮次会累加为当前事件的「驻留时长」（durationMs），供日历与日报统计。
  */
 class ContextEngine {
   constructor({ config, store, files, capture, activeWindow, onEvent, logger = console }) {
@@ -18,7 +23,7 @@ class ContextEngine {
     this.onEvent = onEvent;
     this.logger = logger;
     this.timer = null;
-    this.lastHash = null;
+    this.recentHashes = [];
     this.lastEvent = null;
     this.busySince = 0;
     this.usage = this._loadUsage();
@@ -85,8 +90,21 @@ class ContextEngine {
     const { width, height } = shot.image.getSize();
     const bitmap = typeof shot.image.toBitmap === 'function' ? shot.image.toBitmap() : shot.image.getBitmap();
     const hash = dHashFromBitmap(bitmap, width, height);
-    if (!force && this.lastHash !== null && hammingDistance(this.lastHash, hash) <= 6) {
-      return { changed: false, event: this.lastEvent };
+
+    const dupIndex = findSimilarHash(hash, this.recentHashes, SIMILARITY_THRESHOLD);
+    if (dupIndex === -1) {
+      this.recentHashes.push(hash);
+      if (this.recentHashes.length > HASH_WINDOW) this.recentHashes.shift();
+    }
+
+    if (!force && dupIndex !== -1) {
+      // 画面未变化：把这一轮的感知间隔计入当前活动的驻留时长
+      if (this.lastEvent) {
+        const addMs = clamp(cfg.context.intervalSec, 15, 3600) * 1000;
+        this.lastEvent.durationMs = (this.lastEvent.durationMs || 0) + addMs;
+        this.store.updateLast({ durationMs: this.lastEvent.durationMs });
+      }
+      return { changed: false, extended: true, event: this.lastEvent };
     }
 
     const aw = await this.activeWindow().catch(() => ({ title: '', process: '' }));
@@ -113,7 +131,8 @@ class ContextEngine {
       note: result.note || '',
       suggest: result.suggest || '',
       source: result.source,
-      cloudError: result.cloudError || ''
+      cloudError: result.cloudError || '',
+      durationMs: 0
     };
 
     if (cfg.context.keepScreenshots) {
@@ -125,7 +144,6 @@ class ContextEngine {
     }
 
     this.store.append(evt);
-    this.lastHash = hash;
     this.lastEvent = evt;
     if (evt.isWorking) {
       if (!this.busySince) this.busySince = evt.ts;
@@ -137,4 +155,4 @@ class ContextEngine {
   }
 }
 
-module.exports = { ContextEngine };
+module.exports = { ContextEngine, SIMILARITY_THRESHOLD, HASH_WINDOW };

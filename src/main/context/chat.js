@@ -4,6 +4,7 @@
  * - 无模型 / 调用失败：基于本地事件记录做模板化整理（这不是模型分析）。
  */
 const { personaSystemPrompt } = require('./persona');
+const calendar = require('./calendar');
 
 async function fetchWithTimeout(url, options, timeoutMs) {
   const ctrl = new AbortController();
@@ -77,6 +78,7 @@ function recordsSummary(store) {
   const first = today[0];
   const last = today[today.length - 1];
   const working = today.filter((e) => e.isWorking).length;
+  const focusMs = today.reduce((sum, e) => sum + (Number(e.durationMs) > 0 ? Number(e.durationMs) : 0), 0);
   const apps = topApps(today)
     .map(([a, c]) => `${a}×${c}`)
     .join('、');
@@ -84,9 +86,68 @@ function recordsSummary(store) {
     `📅 今天一共记录了 ${today.length} 个片段，从 ${first.time} 到 ${last.time}。`,
     `🖥️ 主要应用：${apps || '暂无明显集中'}。`,
     `💪 其中专注片段 ${working} 个${working ? '，今天的投入很扎实。' : '，今天以休息为主。'}`,
+    focusMs > 0 ? `⏱️ 驻留时长统计：专注约 ${Math.round(focusMs / 60000)} 分钟。` : '',
     last.note ? `👀 最近一次观察：${last.note}` : ''
   ];
   return lines.filter(Boolean).join('\n');
+}
+
+function recordsDaySummary(dateKey, agg) {
+  const lines = [
+    `📅 ${dateKey}：记录 ${agg.count} 个片段，${agg.firstTime} ~ ${agg.lastTime}。`,
+    `⏱️ 专注约 ${Math.round(agg.workingMs / 60000)} 分钟${agg.workingMs ? '。' : '（这一天以休息为主）。'}`,
+    agg.byApp.length
+      ? `🖥️ 主要应用：${agg.byApp
+          .slice(0, 3)
+          .map((a) => `${a.app}×${Math.round(a.ms / 60000)}m`)
+          .join('、')}`
+      : '',
+    agg.events.length && agg.events[agg.events.length - 1].note
+      ? `👀 最后观察：${agg.events[agg.events.length - 1].note}`
+      : ''
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+
+async function cloudDaySummary(dateKey, events, cfg, dialogue) {
+  const timeline = events.slice(-40).map((e) => ({
+    time: e.time,
+    activity: e.activity,
+    app: e.app,
+    working: !!e.isWorking,
+    minutes: Math.round((Number(e.durationMs) > 0 ? Number(e.durationMs) : 0) / 60000)
+  }));
+  const messages = [
+    {
+      role: 'system',
+      content: `${personaSystemPrompt({ userName: cfg.companion.name, selfName: cfg.companion.selfName })}
+
+【任务】把主人在 ${dateKey} 这一天的屏幕活动记录整理成 3-5 条中文要点（可用 emoji 开头），
+覆盖：时间线、专注时长、主要应用、一句温柔的提醒。不要编造记录外的事实，不超过 160 字。`
+    },
+    { role: 'user', content: `这一天的时间线：${JSON.stringify(timeline)}\n最近对话：\n${dialogueLines(dialogue, 6)}` }
+  ];
+  return cloudChat(messages, cfg, { temperature: 0.4 });
+}
+
+/** 某一天的摘要（日历里点开某天时使用）。 */
+async function summaryForDay(dateKey, { store, cfg, dialogue }) {
+  const events = store.dayEvents(dateKey);
+  const fallbackMs = (Number(cfg?.context?.intervalSec) || 60) * 1000;
+  const agg = calendar.aggregateDay(events, { fallbackMs });
+  if (!events.length) return { text: `${dateKey} 这一天我没有记录到什么活动～`, source: 'records', empty: true };
+  const cloudReady = !!(cfg?.model?.apiKey && cfg?.model?.model && cfg?.model?.baseUrl);
+  if (cloudReady) {
+    try {
+      return { text: await cloudDaySummary(dateKey, events, cfg, dialogue), source: 'cloud' };
+    } catch (err) {
+      return {
+        text: `${recordsDaySummary(dateKey, agg)}\n\n（云端模型暂时联系不上：${String(err?.message || err).slice(0, 80)}）`,
+        source: 'records'
+      };
+    }
+  }
+  return { text: recordsDaySummary(dateKey, agg), source: 'records' };
 }
 
 function recordsAnswer(question, store) {
@@ -191,8 +252,10 @@ module.exports = {
   chatCompletion,
   ask,
   summary,
+  summaryForDay,
   testModel,
   recordsSummary,
+  recordsDaySummary,
   recordsAnswer,
   cloudChat,
   dialogueLines

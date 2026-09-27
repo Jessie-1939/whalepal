@@ -7,8 +7,9 @@ WhalePal（鲸伴）参考项目署名
 1. MineContext — https://github.com/volcengine/MineContext
    Copyright (c) Volcano Engine / contributors
    License: Apache License 2.0
-   参考点：本地优先的上下文工程架构，以及「截屏 -> 视觉模型理解 ->
-   事件存储 -> 摘要/洞察」的上下文管线。
+   参考点：本地优先的上下文工程架构、「截屏 -> 视觉模型理解 -> 事件存储 -> 摘要/洞察」
+   的上下文管线，以及「哈希窗口去重 / 截图持续时长合并 / 按天热力图（日历）」
+   等具体设想（在 WhalePal 中以 JS 重新实现，提示词工程为 WhalePal 自有实现）。
 
 2. dsh-whale-musume — https://github.com/Sutera-Diffusus/dsh-whale-musume
    Copyright (c) 2026 Sutera-Diffusus

@@ -11,6 +11,15 @@
 
   let cfg = null;
   let toastTimer = null;
+  const cal = {
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    selected: null
+  };
+
+  function localDateKey(d = new Date()) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
 
   function toast(text) {
     const el = $('#toast');
@@ -25,18 +34,118 @@
     toast('已保存');
   }
 
-  function bindTabs() {
-    const buttons = document.querySelectorAll('#tabs button');
-    for (const btn of buttons) {
-      btn.addEventListener('click', () => {
-        for (const b of buttons) b.classList.toggle('active', b === btn);
-        for (const sec of document.querySelectorAll('main section')) {
-          sec.hidden = sec.id !== `tab-${btn.dataset.tab}`;
-        }
-        if (btn.dataset.tab === 'data') refreshStats();
-        if (btn.dataset.tab === 'context') refreshNow();
-      });
+  function switchTab(tab) {
+    for (const b of document.querySelectorAll('#tabs button')) {
+      b.classList.toggle('active', b.dataset.tab === tab);
     }
+    for (const sec of document.querySelectorAll('main section')) {
+      sec.hidden = sec.id !== `tab-${tab}`;
+    }
+    if (tab === 'data') refreshStats();
+    if (tab === 'context') refreshNow();
+    if (tab === 'calendar') refreshCalendar();
+  }
+
+  function bindTabs() {
+    for (const btn of document.querySelectorAll('#tabs button')) {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    }
+  }
+
+  // ---------- 日历 ----------
+  async function refreshCalendar() {
+    try {
+      const data = await api.invoke('context:calendar', { year: cal.year, month: cal.month });
+      $('#cal-label').textContent = `${data.year} 年 ${data.month} 月`;
+      const t = data.totals || {};
+      $('#cal-totals').textContent = `本月专注约 ${Math.round((t.workingMs || 0) / 60000)} 分钟 · 有记录 ${t.activeDays || 0} 天 · 片段 ${t.count || 0} 条`;
+      const grid = $('#cal-grid');
+      grid.innerHTML = '';
+      const first = new Date(cal.year, cal.month - 1, 1);
+      const lead = (first.getDay() + 6) % 7; // 周一开头
+      for (let i = 0; i < lead; i++) {
+        const blank = document.createElement('div');
+        blank.className = 'cal-cell empty';
+        grid.appendChild(blank);
+      }
+      const daysInMonth = new Date(cal.year, cal.month, 0).getDate();
+      const todayKey = localDateKey();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const key = `${cal.year}-${String(cal.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const info = (data.days && data.days[key]) || { count: 0, workingMs: 0, level: 0, topApp: '' };
+        const cell = document.createElement('div');
+        cell.className = `cal-cell lvl${info.level}${key === todayKey ? ' today' : ''}${key === cal.selected ? ' selected' : ''}`;
+        const d = document.createElement('span');
+        d.className = 'd';
+        d.textContent = String(day);
+        const m = document.createElement('span');
+        m.className = 'm';
+        m.textContent = info.count ? (info.workingMs > 0 ? `${Math.round(info.workingMs / 60000)}m` : `${info.count}条`) : '';
+        cell.appendChild(d);
+        cell.appendChild(m);
+        cell.title = info.count
+          ? `${info.count} 个片段 · 专注约 ${Math.round(info.workingMs / 60000)} 分钟${info.topApp ? ' · 主力：' + info.topApp : ''}`
+          : '无记录';
+        cell.addEventListener('click', () => selectDay(key));
+        grid.appendChild(cell);
+      }
+    } catch {
+      // 忽略
+    }
+  }
+
+  async function selectDay(key) {
+    cal.selected = key;
+    const agg = await api.invoke('context:day', key);
+    $('#cal-day-title').textContent = `${key} 的活动`;
+    $('#cal-day-stats').textContent = agg.count
+      ? `${agg.count} 个片段 · ${agg.firstTime} ~ ${agg.lastTime} · 专注约 ${Math.round(agg.workingMs / 60000)} 分钟`
+      : '这一天没有记录。';
+    const tl = $('#cal-timeline');
+    tl.innerHTML = '';
+    for (const e of agg.events.slice().reverse()) {
+      const div = document.createElement('div');
+      const t = document.createElement('span');
+      t.className = 't';
+      t.textContent = e.time || '';
+      div.appendChild(t);
+      const minutes = Number(e.durationMs) > 0 ? ` · ${Math.round(Number(e.durationMs) / 60000)}m` : '';
+      div.appendChild(document.createTextNode(`${e.activity || ''} · ${e.app || ''}${e.isWorking ? ' · 工作' : ''}${minutes}`));
+      tl.appendChild(div);
+    }
+    $('#cal-summary-btn').disabled = !agg.count;
+    $('#cal-summary').hidden = true;
+    $('#cal-summary-status').textContent = '';
+    refreshCalendar();
+  }
+
+  function bindCalendar() {
+    $('#cal-prev').addEventListener('click', () => {
+      cal.month -= 1;
+      if (cal.month < 1) {
+        cal.month = 12;
+        cal.year -= 1;
+      }
+      refreshCalendar();
+    });
+    $('#cal-next').addEventListener('click', () => {
+      cal.month += 1;
+      if (cal.month > 12) {
+        cal.month = 1;
+        cal.year += 1;
+      }
+      refreshCalendar();
+    });
+    $('#cal-summary-btn').addEventListener('click', async () => {
+      if (!cal.selected) return;
+      const status = $('#cal-summary-status');
+      status.textContent = '正在整理…';
+      const r = await api.invoke('context:day-summary', cal.selected);
+      const box = $('#cal-summary');
+      box.hidden = false;
+      box.textContent = r.text;
+      status.textContent = r.source === 'cloud' ? '（云端模型）' : '（本地记录整理）';
+    });
   }
 
   function bindCompanion() {
@@ -294,11 +403,14 @@
     bindModel();
     bindChat();
     bindData();
+    bindCalendar();
+    cal.selected = localDateKey();
     loadAbout();
     refreshNow();
     refreshStats();
     setInterval(refreshStats, 30000);
     api.on('context:update', () => refreshNow());
+    api.on('settings:goto', ({ tab }) => switchTab(tab));
   }
 
   init().catch((err) => {

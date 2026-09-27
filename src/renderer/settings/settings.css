@@ -271,6 +271,104 @@ button.danger {
   font-size: 13px;
 }
 
+/* ---------- 日历 ---------- */
+.cal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cal-head button {
+  padding: 4px 12px;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+#cal-label {
+  font-weight: 600;
+  color: #cfe0ff;
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  color: #66748c;
+  font-size: 12px;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.cal-cell {
+  position: relative;
+  min-height: 52px;
+  border-radius: 10px;
+  background: #10141c;
+  border: 1px solid #232b3a;
+  padding: 6px 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.1s ease;
+}
+
+.cal-cell:hover {
+  transform: translateY(-1px);
+}
+
+.cal-cell.empty {
+  visibility: hidden;
+  cursor: default;
+}
+
+.cal-cell .d {
+  font-size: 12px;
+  color: #8291a8;
+}
+
+.cal-cell .m {
+  font-size: 11px;
+  color: #dff3e6;
+}
+
+.cal-cell.lvl1 { background: #16311f; border-color: #1d4a2c; }
+.cal-cell.lvl2 { background: #17472a; border-color: #1f6b3a; }
+.cal-cell.lvl3 { background: #196b39; border-color: #22a05a; }
+.cal-cell.lvl4 { background: #1f9c50; border-color: #38d47a; }
+
+.cal-cell.today { outline: 1px solid #4d7fd6; }
+.cal-cell.selected { outline: 2px solid #8fb7ff; }
+
+.cal-legend {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #66748c;
+  font-size: 12px;
+}
+
+.cal-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.cal-legend .lvl0 { background: #10141c; border: 1px solid #232b3a; }
+.cal-legend .lvl1 { background: #16311f; border: 1px solid #1d4a2c; }
+.cal-legend .lvl2 { background: #17472a; border: 1px solid #1f6b3a; }
+.cal-legend .lvl3 { background: #196b39; border: 1px solid #22a05a; }
+.cal-legend .lvl4 { background: #1f9c50; border: 1px solid #38d47a; }
+
 .toast {
   position: fixed;
   bottom: 18px;

@@ -101,13 +101,19 @@ async function bootstrap() {
   });
 
   let settingsWin = null;
-  const openSettings = () => {
+  const openSettings = (tab) => {
+    const focusTab = tab || 'companion';
+    const sendTab = (win) => {
+      if (win && !win.isDestroyed()) win.webContents.send('settings:goto', { tab: focusTab });
+    };
     if (settingsWin && !settingsWin.isDestroyed()) {
       settingsWin.show();
       settingsWin.focus();
+      sendTab(settingsWin);
       return;
     }
     settingsWin = createSettingsWindow({ preloadPath: PRELOAD, htmlPath: SETTINGS_HTML });
+    settingsWin.webContents.once('did-finish-load', () => sendTab(settingsWin));
     settingsWin.on('closed', () => {
       settingsWin = null;
     });
@@ -268,7 +274,7 @@ async function bootstrap() {
         const shot = await capturePrimaryScreen({ width: 1280, height: 720 });
         if (shot) fs.writeFileSync(path.join(DATA_ROOT, 'debug-desktop.jpg'), shot.image.toJPEG(80));
         if (process.env.WHALEPAL_DEBUG_SETTINGS === '1') {
-          openSettings();
+          openSettings('calendar');
           const sw = BrowserWindow.getAllWindows().find((w) => w !== petWin);
           if (sw) {
             await new Promise((resolve) => {

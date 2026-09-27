@@ -1,6 +1,7 @@
 const { ipcMain, app, shell } = require('electron');
 const { workAreaFor, PET_W, PET_H } = require('./windows');
 const chat = require('./context/chat');
+const calendar = require('./context/calendar');
 
 function registerIpc(rt) {
   const { configStore, store, engine, dialogue, DATA_ROOT, APP_ROOT, broadcast } = rt;
@@ -34,7 +35,24 @@ function registerIpc(rt) {
   ipcMain.handle('pet:save-position', (_e, { x, y }) => {
     if (Number.isFinite(x) && Number.isFinite(y)) configStore.update({ window: { x: Math.round(x), y: Math.round(y) } });
   });
-  ipcMain.handle('pet:open-settings', () => rt.openSettings());
+  ipcMain.handle('pet:open-settings', (_e, opts) => rt.openSettings(opts && opts.tab));
+  ipcMain.handle('context:calendar', (_e, { year, month } = {}) => {
+    const now = new Date();
+    const y = Number(year) || now.getFullYear();
+    const m = Number(month) || now.getMonth() + 1;
+    const mm = String(m).padStart(2, '0');
+    const events = store.readRange(`${y}-${mm}-01`, `${y}-${mm}-31`);
+    const fallbackMs = (Number(configStore.get().context.intervalSec) || 60) * 1000;
+    return calendar.aggregateMonth(events, y, m, { fallbackMs });
+  });
+  ipcMain.handle('context:day', (_e, dateKey) => {
+    const key = String(dateKey || '');
+    const fallbackMs = (Number(configStore.get().context.intervalSec) || 60) * 1000;
+    return calendar.aggregateDay(store.dayEvents(key), { fallbackMs });
+  });
+  ipcMain.handle('context:day-summary', (_e, dateKey) =>
+    chat.summaryForDay(String(dateKey || ''), { store, cfg: configStore.get(), dialogue })
+  );
   ipcMain.handle('pet:hide', () => {
     configStore.update({ companion: { visible: false } });
     rt.hidePet();

@@ -402,6 +402,9 @@
       case 'summary':
         askSummary();
         break;
+      case 'calendar':
+        api.invoke('pet:open-settings', { tab: 'calendar' });
+        break;
       case 'settings':
         api.invoke('pet:open-settings');
         break;
