@@ -10,6 +10,7 @@
     "start": "electron .",
     "test": "node --test \"test/*.test.mjs\"",
     "check": "node scripts/check-syntax.mjs",
+    "privacy": "node scripts/privacy-audit.mjs",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win"
   },

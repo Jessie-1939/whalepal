@@ -2,6 +2,8 @@ const fs = require('node:fs');
 
 /** 云端模型预设（本项目不提供本地模型，模型分析全部走云端 OpenAI 兼容接口）。 */
 const MODEL_PRESETS = {
+  // 仓库内只放公共 DashScope 域名；「业务空间专属域名」属于个人信息，
+  // 请在设置页替换为你的专属地址（只保存在本地 data/config.json，不入库）。
   bailian: {
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     model: 'qwen3.8-omni-flash',
