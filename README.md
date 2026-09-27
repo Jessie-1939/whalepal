@@ -71,6 +71,30 @@ npm start
 - git 报 dubious ownership：`git config --global --add safe.directory <仓库路径>`。
 - 找不到桌宠：右键托盘图标（🟢 小鲸 logo）→ 显示，或设置 → 数据 → 找回桌宠。
 
+## 创建云端仓库并推送（含隐私自检）
+
+1. 打开 <https://github.com/new>：
+   - **Repository name**：建议 `whalepal`（或你喜欢的名字）；
+   - **Visibility**：建议先选 **Private**——公开仓库会展示提交历史与作者信息（本仓库已把作者邮箱改为
+     GitHub noreply、并清除了专属域名，但先私有、确认无误再转公开更稳妥）；
+   - **不要**勾选 Add README / .gitignore / Add license：本地已有一切，勾选会产生冲突的初始提交。
+2. 推送前自检（内置审计脚本，检查当前文件 + 全部历史）：
+
+   ```powershell
+   npm run privacy
+   # 期望输出：隐私审计通过：无密钥 / 无个人路径 / 无专属域名 / 数据目录未被跟踪 ✔
+   ```
+
+3. 关联并推送（首次会弹出浏览器登录 / Git Credential Manager）：
+
+   ```powershell
+   git remote add origin https://github.com/<你的用户名>/whalepal.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+4. 之后每次推送前：`npm run privacy` → `git push`。
+
 ### 立绘素材
 
 把鲸鱼娘仓库（Sutera-Diffusus/dsh-whale-musume）的立绘按其含义拷贝进

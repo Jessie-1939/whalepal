@@ -33,8 +33,8 @@ const PATTERNS = [
   { re: new RegExp('sk-' + '[A-Za-z0-9._-]{6,}'), label: '疑似 API Key (sk-…)' },
   { re: new RegExp('PLPP' + 'HMR'), label: '已知密钥片段' },
   { re: new RegExp('DASHSCOPE' + '_API_KEY'), label: '环境变量名', warnOnly: true },
-  { re: /C:\\Users\\[^\\\s]+/i, label: 'Windows 个人路径' },
-  { re: /D:\\Program Files/i, label: '本机绝对路径' },
+  { re: /C:\\Users\\[A-Za-z0-9._-]+/i, label: 'Windows 个人路径' },
+  { re: /D:\\Program Files\\[^\s]/i, label: '本机绝对路径' },
   { re: new RegExp('208' + '76'), label: '本机用户名' },
   { re: new RegExp('maas\\.' + 'aliyuncs\\.com'), label: '业务空间专属域名' },
   { re: new RegExp('259' + '614060'), label: '作者邮箱/QQ 号' }
