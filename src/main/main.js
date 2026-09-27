@@ -212,6 +212,21 @@ async function bootstrap() {
         console.log('SCREENSIZE ' + JSON.stringify(screen.getPrimaryDisplay().size));
         console.log('SCALEFACTOR ' + screen.getPrimaryDisplay().scaleFactor);
         console.log('PETBOUNDS ' + JSON.stringify(petWin.getBounds()));
+        const probe = await petWin.webContents.executeJavaScript(
+          `JSON.stringify({
+            cls: document.body.className,
+            innerW: innerWidth,
+            innerH: innerHeight,
+            bubbleTop: getComputedStyle(document.getElementById('bubble')).top,
+            bubbleText: document.getElementById('bubble').textContent.slice(0, 16),
+            spriteBox: (() => {
+              const el = !document.getElementById('sprite').hidden ? document.getElementById('sprite') : document.getElementById('sprite-emoji');
+              const r = el.getBoundingClientRect();
+              return [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)];
+            })()
+          })`
+        );
+        console.log('RENDERER ' + probe);
         const img = await petWin.webContents.capturePage();
         fs.writeFileSync(path.join(DATA_ROOT, 'pet-capture.png'), img.toPNG());
         const shot = await capturePrimaryScreen({ width: 1280, height: 720 });

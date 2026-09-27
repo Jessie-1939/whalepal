@@ -111,6 +111,7 @@ body[data-pose="angry"] #pet {
   left: 50%;
   top: 6px;
   transform: translate(-50%, 6px) scale(0.96);
+  z-index: 6;
   max-width: 252px;
   padding: 10px 14px;
   border-radius: 14px;
@@ -142,6 +143,27 @@ body[data-pose="angry"] #pet {
   border-bottom: 0;
 }
 
+/* 立绘贴到屏幕顶边时：气泡翻到身体下侧，保证始终可见 */
+body.bubble-below .bubble {
+  top: 130px;
+  transform: translate(-50%, -6px) scale(0.96);
+}
+
+body.bubble-below .bubble.show {
+  transform: translate(-50%, 0) scale(1);
+}
+
+body.bubble-below .bubble::after {
+  bottom: auto;
+  top: -6px;
+  border-top: 0;
+  border-bottom: 6px solid rgba(255, 255, 255, 0.96);
+}
+
+body.bubble-below .label {
+  top: 96px;
+}
+
 @media (prefers-color-scheme: dark) {
   .bubble {
     background: rgba(28, 34, 46, 0.96);
@@ -149,6 +171,9 @@ body[data-pose="angry"] #pet {
   }
   .bubble::after {
     border-top-color: rgba(28, 34, 46, 0.96);
+  }
+  body.bubble-below .bubble::after {
+    border-bottom-color: rgba(28, 34, 46, 0.96);
   }
 }
 

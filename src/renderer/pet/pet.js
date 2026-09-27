@@ -34,10 +34,24 @@
   const W = () => window.innerWidth;
   const H = () => window.innerHeight;
 
+  // 立绘在窗口内的实际可视区域（默认按 #pet 容器：236×264、bottom 4px、水平居中）。
+  // 拖拽/漫游边界按“立绘贴边”计算而不是“窗口贴边”，
+  // 这样立绘本体可以真正贴到屏幕四边（窗口允许适度超出屏幕外）。
+  let visualBox = { left: 32, top: 82, right: 268, bottom: 346 };
+
+  function measureBox() {
+    const el = !sprite.hidden ? sprite : emoji;
+    const r = el.getBoundingClientRect();
+    if (r.width > 8 && r.height > 8) {
+      visualBox = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    }
+  }
+
   function clampPos(p) {
+    const wa = workArea;
     return {
-      x: Math.min(Math.max(p.x, workArea.x), workArea.x + workArea.width - W()),
-      y: Math.min(Math.max(p.y, workArea.y), workArea.y + workArea.height - H())
+      x: Math.min(Math.max(p.x, wa.x - visualBox.left), wa.x + wa.width - visualBox.right),
+      y: Math.min(Math.max(p.y, wa.y - visualBox.top), wa.y + wa.height - visualBox.bottom)
     };
   }
 
@@ -60,8 +74,11 @@
       sprite.hidden = true;
       emoji.hidden = false;
       emoji.textContent = EMOJI[pose] || '🐋';
+      measureBox();
     }
   }
+
+  sprite.addEventListener('load', measureBox);
 
   function refreshPose() {
     applyPose(visualWalk && state.phase === 'idle' ? 'walk' : state.pose);
@@ -139,16 +156,24 @@
   // ---------- 窗口移动 ----------
   function moveTo(p) {
     pos = p;
+    syncEdgeClass();
     api.invoke('pet:move', { x: p.x, y: p.y });
+  }
+
+  // 立绘贴近屏幕顶边时，气泡翻到身体下方，避免被屏幕裁掉。
+  // 注意：启动与窗口尺寸变化时也要同步，不能只在移动时判断。
+  function syncEdgeClass() {
+    document.body.classList.toggle('bubble-below', pos.y < workArea.y + 2);
   }
 
   function snapAndSave() {
     const EDGE = 12;
+    const wa = workArea;
     let p = { ...pos };
-    if (p.x - workArea.x < EDGE) p.x = workArea.x;
-    if (workArea.x + workArea.width - W() - p.x < EDGE) p.x = workArea.x + workArea.width - W();
-    if (p.y - workArea.y < EDGE) p.y = workArea.y;
-    if (workArea.y + workArea.height - H() - p.y < EDGE) p.y = workArea.y + workArea.height - H();
+    if (p.x + visualBox.left - wa.x < EDGE) p.x = wa.x - visualBox.left;
+    if (wa.x + wa.width - (p.x + visualBox.right) < EDGE) p.x = wa.x + wa.width - visualBox.right;
+    if (p.y + visualBox.top - wa.y < EDGE) p.y = wa.y - visualBox.top;
+    if (wa.y + wa.height - (p.y + visualBox.bottom) < EDGE) p.y = wa.y + wa.height - visualBox.bottom;
     p = clampPos(p);
     if (p.x !== pos.x || p.y !== pos.y) moveTo(p);
     else pos = p;
@@ -193,11 +218,11 @@
     }
     const dtS = dt / 1000;
     let next = { x: pos.x + wander.vx * dtS, y: pos.y + wander.vy * dtS };
-    if (next.x <= workArea.x || next.x >= workArea.x + workArea.width - W()) {
+    if (next.x <= workArea.x - visualBox.left || next.x >= workArea.x + workArea.width - visualBox.right) {
       wander.vx *= -1;
       next.x = pos.x;
     }
-    if (next.y <= workArea.y || next.y >= workArea.y + workArea.height - H()) {
+    if (next.y <= workArea.y - visualBox.top || next.y >= workArea.y + workArea.height - visualBox.bottom) {
       wander.vy *= -1;
       next.y = pos.y;
     }
@@ -216,8 +241,8 @@
     glide.last = now;
     const frames = dt / 16.67;
     let next = { x: pos.x + glide.vx * frames, y: pos.y + glide.vy * frames };
-    if (next.x <= workArea.x || next.x >= workArea.x + workArea.width - W()) glide.vx *= -0.35;
-    if (next.y <= workArea.y || next.y >= workArea.y + workArea.height - H()) glide.vy *= -0.35;
+    if (next.x <= workArea.x - visualBox.left || next.x >= workArea.x + workArea.width - visualBox.right) glide.vx *= -0.35;
+    if (next.y <= workArea.y - visualBox.top || next.y >= workArea.y + workArea.height - visualBox.bottom) glide.vy *= -0.35;
     next = clampPos(next);
     moveTo(next);
     const decay = Math.pow(0.92, frames);
@@ -429,6 +454,7 @@
     const bounds = await api.invoke('pet:get-bounds');
     pos = { x: bounds.x, y: bounds.y };
     applyPose(state.pose);
+    syncEdgeClass();
     requestAnimationFrame(frame);
 
     const hour = new Date().getHours();
@@ -466,6 +492,7 @@
     window.addEventListener('resize', () => {
       pos = clampPos(pos);
       moveTo(pos);
+      syncEdgeClass();
     });
   }
 

@@ -59,6 +59,11 @@
     const merged = Object.assign(base, (initial && { ...initial }) || {});
     merged.achievements = Object.assign({}, (initial && initial.achievements) || {});
     merged.diary = Array.isArray(merged.diary) ? merged.diary.slice(-80) : [];
+    // 瞬时状态不入档：phase/pose 属于运行期状态，启动时一律从 idle 开始，
+    // 由随后的 tick / context 事件重新决定（避免上次退出时的 work/sleep 被固化）。
+    merged.phase = 'idle';
+    merged.pose = 'idle';
+    merged.prevMain = 'idle';
     return merged;
   }
 

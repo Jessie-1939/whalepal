@@ -29,11 +29,14 @@ function defaultPetPosition() {
   };
 }
 
-/** 把窗口位置钳制进当前显示器工作区，避免使用历史坐标（换显示器/改分辨率后）越界。 */
+// 与渲染层一致的“立绘可视区域”边距：允许立绘（而非窗口）贴到屏幕边。
+const OVERHANG = { left: 32, top: 82, right: 32, bottom: 4 };
+
+/** 把窗口位置钳制进当前显示器工作区（允许立绘贴边的少量越界），避免历史坐标越界。 */
 function clampToWorkArea(pos, workArea = screen.getPrimaryDisplay().workArea) {
   return {
-    x: Math.min(Math.max(pos.x, workArea.x), workArea.x + workArea.width - PET_W),
-    y: Math.min(Math.max(pos.y, workArea.y), workArea.y + workArea.height - PET_H)
+    x: Math.min(Math.max(pos.x, workArea.x - OVERHANG.left), workArea.x + workArea.width - PET_W + OVERHANG.right),
+    y: Math.min(Math.max(pos.y, workArea.y - OVERHANG.top), workArea.y + workArea.height - PET_H + OVERHANG.bottom)
   };
 }
 
