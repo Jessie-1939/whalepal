@@ -26,6 +26,14 @@
     toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
   }
 
+  function fmtBytes(n) {
+    const v = Number(n) || 0;
+    if (v < 1024) return `${v} B`;
+    if (v < 1024 * 1024) return `${(v / 1024).toFixed(1)} KB`;
+    if (v < 1024 * 1024 * 1024) return `${(v / 1024 / 1024).toFixed(1)} MB`;
+    return `${(v / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  }
+
   async function save(patch) {
     cfg = await api.invoke('config:set', patch);
     toast('已保存');
@@ -349,6 +357,31 @@
         $('#d-stats').appendChild(div);
       }
       $('#m-usage').textContent = `云端调用：${usage.calls || 0} 次，失败降级：${usage.failures || 0} 次`;
+
+      // 记忆体积：把「长期记忆用文本、像素只是原料」的结论变成可见数字
+      const st = s.storage;
+      const storageBox = $('#d-storage');
+      storageBox.innerHTML = '';
+      if (st) {
+        const rows = [
+          ['文本记忆（事件）', `${st.eventCount} 条 · ${fmtBytes(st.eventBytes)}（平均 ${st.avgEventBytes} B/条）`],
+          ['图片（仅保留最新一张）', st.imageBytes ? `1 张 · ${fmtBytes(st.imageBytes)}` : '未保留'],
+          ['单张截图 ≈ 多少条文本记忆', `${st.ratioPerEvent} 条`],
+          ['若按去重后每个事件存图', `${fmtBytes(st.imagePerDayDedup)}/天 · ${fmtBytes(st.imagePerMonthDedup)}/月`],
+          ['若全量存图（不推荐）', `${fmtBytes(st.imagePerDayFull)}/天 · ${fmtBytes(st.imagePerMonthFull)}/月`]
+        ];
+        for (const [label, value] of rows) {
+          const div = document.createElement('div');
+          div.className = 'item';
+          const span = document.createElement('span');
+          span.textContent = label;
+          const b = document.createElement('b');
+          b.textContent = value;
+          div.appendChild(span);
+          div.appendChild(b);
+          storageBox.appendChild(div);
+        }
+      }
 
       const recent = await api.invoke('context:recent', 12);
       const box = $('#d-events');

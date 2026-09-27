@@ -73,6 +73,16 @@ class EventStore {
     return this.dayEvents(localDateKey());
   }
 
+  /** 出现过记录的日期（升序），用于体积统计里的"活跃天数"。 */
+  dates() {
+    const set = new Set();
+    for (const line of this._lines()) {
+      const m = /"date":"(\d{4}-\d{2}-\d{2})"/.exec(line);
+      if (m) set.add(m[1]);
+    }
+    return [...set].sort();
+  }
+
   /** 更新最后一条事件（用于驻留时长累积），整文件重写一行。 */
   updateLast(patch) {
     const lines = this._lines();

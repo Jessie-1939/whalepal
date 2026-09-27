@@ -1,12 +1,14 @@
 const { ipcMain, app, shell } = require('electron');
+const fs = require('node:fs');
 const { workAreaFor, PET_W, PET_H } = require('./windows');
 const chat = require('./context/chat');
 const calendar = require('./context/calendar');
+const { computeStorageStats } = require('./context/stats');
 const { MODEL_PRESETS } = require('./config');
 const { capturePrimaryScreen } = require('./context/capture');
 
 function registerIpc(rt) {
-  const { configStore, store, engine, dialogue, summaries, DATA_ROOT, APP_ROOT, broadcast } = rt;
+  const { configStore, store, engine, dialogue, summaries, files, DATA_ROOT, APP_ROOT, broadcast } = rt;
 
   // ---- 配置 ----
   ipcMain.handle('config:get', () => configStore.get());
@@ -78,11 +80,34 @@ function registerIpc(rt) {
     return store.readRecent(count);
   });
   ipcMain.handle('context:capture-now', () => engine.captureOnce(true));
-  ipcMain.handle('context:stats', () => ({
-    ...store.stats(),
-    usage: engine.usage,
-    busyMinutes: engine.busyMinutes()
-  }));
+  ipcMain.handle('context:stats', () => {
+    const f = files;
+    let eventBytes = 0;
+    let imageBytes = 0;
+    try {
+      eventBytes = fs.statSync(f.events).size;
+    } catch {
+      // 首次运行
+    }
+    try {
+      imageBytes = fs.statSync(f.latestShot).size;
+    } catch {
+      // 未保留截图
+    }
+    const storage = computeStorageStats({
+      eventBytes,
+      eventCount: store.count,
+      imageBytes,
+      intervalSec: configStore.get().context.intervalSec,
+      activeDays: store.dates().length || 1
+    });
+    return {
+      ...store.stats(),
+      usage: engine.usage,
+      busyMinutes: engine.busyMinutes(),
+      storage
+    };
+  });
   ipcMain.handle('context:summary', async () => chat.summary({ store, cfg: configStore.get(), dialogue }));
 
   // ---- 对话与模型 ----

@@ -305,6 +305,8 @@ async function bootstrap() {
               else resolve();
             });
             await new Promise((resolve) => setTimeout(resolve, 1500));
+            await sw.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)');
+            await new Promise((resolve) => setTimeout(resolve, 400));
             const simg = await sw.webContents.capturePage();
             fs.writeFileSync(path.join(DATA_ROOT, 'settings-capture.png'), simg.toPNG());
           }
