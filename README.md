@@ -36,9 +36,9 @@ cloud vision for understanding, local-only data, zero telemetry.*
 
 ## 截图
 
-| 桌面上的她 | 陪伴设置 | 活动日历 |
-| --- | --- | --- |
-| ![桌面](docs/images/desktop-pet.jpg) | ![设置](docs/images/settings-companion.png) | ![日历](docs/images/settings-calendar.png) |
+| 陪伴设置 | 活动日历 |
+| --- | --- |
+| ![设置](docs/images/settings-companion.png) | ![日历](docs/images/settings-calendar.png) |
 
 | 主动搭话（手动触发） | 隐私与记忆体积 |
 | --- | --- |
@@ -146,7 +146,7 @@ npm run dist    # 打包：dist/ 下产出 zip（绿色单文件夹）与 NSIS �
 | [docs/12-记忆介质决策.md](docs/12-记忆介质决策.md) | 为什么长期记忆用文本（本机实测） |
 | [docs/13-主动搭话说明.md](docs/13-主动搭话说明.md) | 主动搭话门控与"为什么不说话" |
 
-变更记录见 [CHANGELOG.md](CHANGELOG.md)；推送/发布流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 路线图
 
