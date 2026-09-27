@@ -7,7 +7,7 @@ const { ConfigStore } = require('./config');
 const { EventStore } = require('./context/store');
 const { DialogueStore } = require('./context/dialogue');
 const { SummaryStore } = require('./context/summaries');
-const { evaluateProactiveGates, decideWithModel, TIMEOUT_LINE } = require('./context/proactive');
+const { evaluateProactiveGates, decideWithModel, generateTrialLine, TIMEOUT_LINE } = require('./context/proactive');
 const { ContextEngine } = require('./context/engine');
 const { CareManager } = require('./context/care');
 const { capturePrimaryScreen } = require('./context/capture');
@@ -164,29 +164,54 @@ async function bootstrap() {
   });
 
   // 主动搭话：默认沉默；只有云端模型显式调用 send_message 工具才会发送。
-  const runProactive = async () => {
+  const runProactive = async ({ trial = false } = {}) => {
     const c = configStore.get();
     const now = Date.now();
+    const hasKey = !!(c.model.apiKey && c.model.model && c.model.baseUrl);
     const gate = evaluateProactiveGates({
       cfg: c,
       now,
       hour: new Date().getHours(),
       lastEvent: engine.lastEvent,
       dialogue,
-      hasKey: !!(c.model.apiKey && c.model.model && c.model.baseUrl)
+      hasKey
     });
-    if (!gate.allow) return { sent: false, reason: gate.reason };
-    if (gate.mode === 'timeout') {
+    if (!trial && !gate.allow) {
+      rt.proactiveStatus = { at: now, sent: false, reason: gate.reason, trial: false };
+      return { sent: false, reason: gate.reason };
+    }
+    if (trial && !hasKey) {
+      rt.proactiveStatus = { at: now, sent: false, reason: 'no-cloud-key', trial: true };
+      return { sent: false, reason: 'no-cloud-key' };
+    }
+    if (trial) {
+      // 手动试跑：主人明确要求她说一句 → 直接生成（自主搭话仍走工具门控）
+      try {
+        const text = await generateTrialLine({ cfg: c, store, dialogue });
+        if (!text) throw new Error('empty');
+        dialogue.append({ role: 'pet', kind: 'proactive', text });
+        broadcast('pet:bubble', { text, ms: 8000, kind: 'proactive' });
+        rt.proactiveStatus = { at: now, sent: true, reason: 'trial', text, trial: true };
+        return { sent: true, mode: 'trial', text };
+      } catch (err) {
+        rt.proactiveStatus = { at: now, sent: false, reason: 'cloud-error', trial: true };
+        return { sent: false, reason: 'cloud-error', error: String(err?.message || err).slice(0, 120) };
+      }
+    }
+    if (!trial && gate.mode === 'timeout') {
       dialogue.append({ role: 'pet', kind: 'timeout', text: TIMEOUT_LINE });
       broadcast('pet:bubble', { text: TIMEOUT_LINE, ms: 6000, kind: 'timeout' });
+      rt.proactiveStatus = { at: now, sent: true, reason: 'timeout-signal', text: TIMEOUT_LINE, trial: false };
       return { sent: true, mode: 'timeout' };
     }
-    const decision = await decideWithModel({ cfg: c, store, dialogue });
+    const decision = await decideWithModel({ cfg: c, store, dialogue, trial });
     if (decision.send) {
       dialogue.append({ role: 'pet', kind: 'proactive', text: decision.text });
       broadcast('pet:bubble', { text: decision.text, ms: 8000, kind: 'proactive' });
+      rt.proactiveStatus = { at: now, sent: true, reason: 'ok', text: decision.text, trial };
       return { sent: true, mode: 'model', text: decision.text };
     }
+    rt.proactiveStatus = { at: now, sent: false, reason: decision.reason, trial };
     return { sent: false, reason: decision.reason };
   };
 
@@ -214,7 +239,8 @@ async function bootstrap() {
       if (size > 256 * 1024) return false;
       return writeJson(files().growth, payload);
     },
-    runProactive
+    runProactive,
+    proactiveStatus: null
   };
 
   registerIpc(rt);
@@ -317,5 +343,21 @@ async function bootstrap() {
       }
       app.quit();
     }, delay);
+  }
+
+  // 主动搭话自检：WHALEPAL_DEBUG_PROACTIVE=1 时立即执行一次判断（绕过时间类门控）并截图气泡
+  if (process.env.WHALEPAL_DEBUG_PROACTIVE === '1') {
+    setTimeout(async () => {
+      const res = await runProactive({ trial: true });
+      console.log('PROACTIVE_TRIAL ' + JSON.stringify(res).slice(0, 300));
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      try {
+        const img = await petWin.webContents.capturePage();
+        fs.writeFileSync(path.join(DATA_ROOT, 'proactive-capture.png'), img.toPNG());
+      } catch {
+        // 忽略
+      }
+      setTimeout(() => app.quit(), 1500);
+    }, 4000);
   }
 }

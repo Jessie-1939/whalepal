@@ -34,6 +34,29 @@
     return `${(v / 1024 / 1024 / 1024).toFixed(2)} GB`;
   }
 
+  // 主动搭话的沉默原因（与 src/main/context/proactive.js 的门控一一对应）
+  const PROACTIVE_REASONS = {
+    disabled: '主动搭话已关闭',
+    'bubbles-off': '台词气泡已关闭',
+    hidden: '桌宠处于隐藏状态',
+    quiet: '当前是安静时段',
+    'no-activity': '最近 30 分钟没有活动记录',
+    working: '你正在专注工作',
+    cooldown: '距上次主动消息不足 12 分钟',
+    'awaiting-user': '上一条还没得到回应，她在等你',
+    'no-cloud-key': '未配置云端模型 Key',
+    'model-silent': '模型判断此刻不必开口',
+    'no-tool-call': '模型未调用发送工具',
+    'empty-args': '模型返回了空内容',
+    duplicate: '与最近说过的话重复',
+    'cloud-error': '云端调用失败',
+    'timeout-signal': '正在补发超时信号'
+  };
+
+  function reasonText(reason) {
+    return PROACTIVE_REASONS[reason] || reason || '未知原因';
+  }
+
   async function save(patch) {
     cfg = await api.invoke('config:set', patch);
     toast('已保存');
@@ -332,6 +355,18 @@
       s.textContent = r.source === 'cloud' ? '（云端模型）' : '（本地记录整理）';
       placeholder.appendChild(s);
     });
+    // 主动搭话自检：立即判断一次，展示"说了什么"或"为什么沉默"
+    $('#chat-proactive-test').addEventListener('click', async () => {
+      const status = $('#chat-proactive-status');
+      status.textContent = '正在判断…';
+      const r = await api.invoke('proactive:run');
+      if (r && r.sent) {
+        status.textContent = `她说：${r.text || '（超时信号）'}`;
+        appendChat('a', `小鲸：${r.text || '……主人？'}`);
+      } else {
+        status.textContent = `这次保持沉默（${reasonText(r && r.reason)}）`;
+      }
+    });
   }
 
   async function refreshStats() {
@@ -368,7 +403,6 @@
         const rows = [
           ['文本记忆（事件）', `${st.eventCount} 条 · ${fmtBytes(st.eventBytes)}（平均 ${st.avgEventBytes} B/条）`],
           ['图片（仅保留最新一张）', st.imageBytes ? `1 张 · ${fmtBytes(st.imageBytes)}` : '未保留'],
-          ['单张截图 ≈ 多少条文本记忆', `${st.ratioPerEvent} 条`],
           ['若按去重后每个事件存图', `${fmtBytes(st.imagePerDayDedup)}/天 · ${fmtBytes(st.imagePerMonthDedup)}/月`]
         ];
         for (const [label, value] of rows) {
@@ -382,6 +416,15 @@
           div.appendChild(b);
           storageBox.appendChild(div);
         }
+      }
+
+      // 主动搭话：最近一次判断结果（发送内容或沉默原因）
+      const ps = s.proactiveStatus;
+      if (ps) {
+        const time = new Date(ps.at).toLocaleTimeString();
+        $('#chat-proactive-status').textContent = ps.sent
+          ? `最近一次（${time}）：她说「${ps.text}」`
+          : `最近一次（${time}）：保持沉默（${reasonText(ps.reason)}）`;
       }
 
       const recent = await api.invoke('context:recent', 12);

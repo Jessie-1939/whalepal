@@ -105,7 +105,8 @@ function registerIpc(rt) {
       ...store.stats(),
       usage: engine.usage,
       busyMinutes: engine.busyMinutes(),
-      storage
+      storage,
+      proactiveStatus: rt.proactiveStatus || null
     };
   });
   ipcMain.handle('context:summary', async () => chat.summary({ store, cfg: configStore.get(), dialogue }));
@@ -129,6 +130,9 @@ function registerIpc(rt) {
     return res;
   });
   ipcMain.handle('model:test', () => chat.testModel(configStore.get()));
+
+  // 主动搭话自检：立即执行一次判断（trial 模式绕过时间类门控，仍需云端 Key）
+  ipcMain.handle('proactive:run', () => rt.runProactive({ trial: true }));
 
   // ---- 对话记忆（渲染层每次说出可见台词/关键互动时调用）----
   ipcMain.handle('dialogue:record', (_e, entry) => dialogue.append(entry || {}));
