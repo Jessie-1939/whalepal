@@ -47,6 +47,7 @@ function files() {
     growth: path.join(DATA_ROOT, 'growth.json'),
     usage: path.join(DATA_ROOT, 'usage.json'),
     dialogue: path.join(DATA_ROOT, 'dialogue.jsonl'),
+    summaries: path.join(DATA_ROOT, 'summaries.jsonl'),
     events: path.join(DATA_ROOT, 'events.jsonl'),
     latestShot: path.join(DATA_ROOT, 'screenshots', 'latest.jpg')
   };

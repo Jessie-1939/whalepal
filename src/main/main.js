@@ -6,6 +6,7 @@ const { relocateElectronPaths, ensureDirs, DATA_ROOT, APP_ROOT, files } = requir
 const { ConfigStore } = require('./config');
 const { EventStore } = require('./context/store');
 const { DialogueStore } = require('./context/dialogue');
+const { SummaryStore } = require('./context/summaries');
 const { evaluateProactiveGates, decideWithModel, TIMEOUT_LINE } = require('./context/proactive');
 const { ContextEngine } = require('./context/engine');
 const { CareManager } = require('./context/care');
@@ -90,6 +91,7 @@ async function bootstrap() {
   const cfg = configStore.get();
   const store = new EventStore(files().events, cfg.context.maxEvents);
   const dialogue = new DialogueStore(files().dialogue, 400);
+  const summaries = new SummaryStore(files().summaries);
   const poses = scanPoses(PET_ASSETS);
 
   registerAssetProtocol({ assets: PET_ASSETS, data: DATA_ROOT });
@@ -182,6 +184,7 @@ async function bootstrap() {
     configStore,
     store,
     dialogue,
+    summaries,
     engine,
     care,
     poses,

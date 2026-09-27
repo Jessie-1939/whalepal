@@ -3,9 +3,10 @@ const { workAreaFor, PET_W, PET_H } = require('./windows');
 const chat = require('./context/chat');
 const calendar = require('./context/calendar');
 const { MODEL_PRESETS } = require('./config');
+const { capturePrimaryScreen } = require('./context/capture');
 
 function registerIpc(rt) {
-  const { configStore, store, engine, dialogue, DATA_ROOT, APP_ROOT, broadcast } = rt;
+  const { configStore, store, engine, dialogue, summaries, DATA_ROOT, APP_ROOT, broadcast } = rt;
 
   // ---- 配置 ----
   ipcMain.handle('config:get', () => configStore.get());
@@ -53,7 +54,7 @@ function registerIpc(rt) {
     return calendar.aggregateDay(store.dayEvents(key), { fallbackMs });
   });
   ipcMain.handle('context:day-summary', (_e, dateKey) =>
-    chat.summaryForDay(String(dateKey || ''), { store, cfg: configStore.get(), dialogue })
+    chat.summaryForDay(String(dateKey || ''), { store, cfg: configStore.get(), dialogue, summaries })
   );
   ipcMain.handle('pet:hide', () => {
     configStore.update({ companion: { visible: false } });
@@ -87,7 +88,17 @@ function registerIpc(rt) {
   // ---- 对话与模型 ----
   ipcMain.handle('chat:ask', async (_e, question) => {
     broadcast('companion:asked', true);
-    const res = await chat.ask(question, { store, cfg: configStore.get(), dialogue });
+    const res = await chat.ask(question, {
+      store,
+      cfg: configStore.get(),
+      dialogue,
+      summaries,
+      // 只有「现在/此刻」类问题才现场截一张图给云端模型（图片只在需要“看”的时刻进场）
+      captureNow: async () => {
+        const shot = await capturePrimaryScreen({ width: 1280, height: 720 });
+        return shot ? shot.image.toJPEG(72) : null;
+      }
+    });
     dialogue.append({ role: 'user', kind: 'chat', text: String(question || '') });
     dialogue.append({ role: 'pet', kind: 'chat-reply', text: res.answer });
     return res;
@@ -101,6 +112,7 @@ function registerIpc(rt) {
   ipcMain.handle('data:clear', () => {
     store.clear();
     dialogue.clear();
+    summaries.clear();
     return true;
   });
   ipcMain.handle('data:info', () => ({ dataDir: DATA_ROOT, appRoot: APP_ROOT }));

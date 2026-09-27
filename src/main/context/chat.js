@@ -5,6 +5,7 @@
  */
 const { personaSystemPrompt } = require('./persona');
 const calendar = require('./calendar');
+const { buildQuestionContext } = require('./builder');
 
 async function fetchWithTimeout(url, options, timeoutMs) {
   const ctrl = new AbortController();
@@ -136,23 +137,33 @@ async function cloudDaySummary(dateKey, events, cfg, dialogue) {
 }
 
 /** 某一天的摘要（日历里点开某天时使用）。 */
-async function summaryForDay(dateKey, { store, cfg, dialogue }) {
+async function summaryForDay(dateKey, { store, cfg, dialogue, summaries }) {
   const events = store.dayEvents(dateKey);
   const fallbackMs = (Number(cfg?.context?.intervalSec) || 60) * 1000;
   const agg = calendar.aggregateDay(events, { fallbackMs });
   if (!events.length) return { text: `${dateKey} 这一天我没有记录到什么活动～`, source: 'records', empty: true };
+  const isPast = dateKey < calendar.localDateKey();
+  if (isPast && summaries) {
+    // 过去的日子一旦生成过摘要就复用（L1 缓存），避免重复消耗云端调用
+    const cached = summaries.get(dateKey);
+    if (cached) return { text: cached.text, source: cached.source, cached: true };
+  }
   const cloudReady = !!(cfg?.model?.apiKey && cfg?.model?.model && cfg?.model?.baseUrl);
+  let result;
   if (cloudReady) {
     try {
-      return { text: await cloudDaySummary(dateKey, events, cfg, dialogue), source: 'cloud' };
+      result = { text: await cloudDaySummary(dateKey, events, cfg, dialogue), source: 'cloud' };
     } catch (err) {
-      return {
+      result = {
         text: `${recordsDaySummary(dateKey, agg)}\n\n（云端模型暂时联系不上：${String(err?.message || err).slice(0, 80)}）`,
         source: 'records'
       };
     }
+  } else {
+    result = { text: recordsDaySummary(dateKey, agg), source: 'records' };
   }
-  return { text: recordsDaySummary(dateKey, agg), source: 'records' };
+  if (isPast && summaries) summaries.put(dateKey, result);
+  return result;
 }
 
 function recordsAnswer(question, store) {
@@ -178,31 +189,47 @@ function recordsAnswer(question, store) {
   return `${head}\n${recordsSummary(store)}`;
 }
 
-async function cloudAnswer(question, store, cfg, dialogue) {
-  const recent = slimEvents(store.readRecent(24));
-  const today = slimEvents(store.today().slice(-40));
+async function cloudAnswer(question, cfg, built, imageJpeg) {
+  const userContent = imageJpeg
+    ? [
+        {
+          type: 'text',
+          text: `${built.text}\n\n问题：${question}\n（附带一张刚刚截取的屏幕截图，请结合画面回答。）`
+        },
+        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageJpeg.toString('base64')}` } }
+      ]
+    : `${built.text}\n\n问题：${question}`;
   const messages = [
     {
       role: 'system',
       content: `${personaSystemPrompt({ userName: cfg.companion.name, selfName: cfg.companion.selfName })}
 
-【任务】根据主人的屏幕活动记录回答问题。回答不超过 120 字；不要编造记录里没有的事；记录不足时直说并给一个小建议；不要重复你最近刚刚说过的话；如果之前问过的问题主人没有回应，不要再追问。`
+【任务】根据主人提供的分层上下文（L0 对话 / L1 摘要 / L2 事件明细，可能附带实时截图）回答问题。
+回答不超过 120 字；不要编造记录里没有的事；记录不足时直说并给一个小建议；
+不要重复你最近刚刚说过的话；如果之前问过的问题主人没有回应，不要再追问。`
     },
-    {
-      role: 'user',
-      content: `今日记录：${JSON.stringify(today)}\n最近记录：${JSON.stringify(recent)}\n最近对话：\n${dialogueLines(dialogue)}\n\n问题：${question}`
-    }
+    { role: 'user', content: userContent }
   ];
   return cloudChat(messages, cfg);
 }
 
-async function ask(question, { store, cfg, dialogue }) {
+async function ask(question, { store, cfg, dialogue, summaries, captureNow }) {
   const q = String(question || '').trim();
   if (!q) return { answer: '你想问什么都可以，比如「我刚才在干嘛」。', source: 'records' };
   const cloudReady = !!(cfg?.model?.apiKey && cfg?.model?.model && cfg?.model?.baseUrl);
   if (cloudReady) {
     try {
-      return { answer: await cloudAnswer(q, store, cfg, dialogue), source: 'cloud' };
+      const built = buildQuestionContext({ question: q, store, dialogue, summaries });
+      let imageJpeg = null;
+      if (built.attachFreshImage && typeof captureNow === 'function') {
+        imageJpeg = await captureNow().catch(() => null);
+      }
+      return {
+        answer: await cloudAnswer(q, cfg, built, imageJpeg),
+        source: 'cloud',
+        attachedImage: !!imageJpeg,
+        layers: built.stats
+      };
     } catch (err) {
       return {
         answer: `${recordsAnswer(q, store)}\n\n（云端模型暂时联系不上：${String(err?.message || err).slice(0, 80)}）`,
