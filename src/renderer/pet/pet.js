@@ -41,6 +41,8 @@
   ];
   const IDLE_ACTION_MIN_GAP_MS = 45 * 1000;
   const IDLE_ACTION_MAX_GAP_MS = 110 * 1000;
+  const WORK_ROTATE_MS = 4 * 60 * 1000; // 工作姿势：组内每 4 分钟轮换一格
+  const IDLE_ROTATE_MS = 15 * 60 * 1000; // 待机基础图：每 15 分钟轮换一格
   const AFK_MS = 3 * 60 * 1000; // 3 分钟无互动 → 原地打盹
   let idleOverride = null; // { name, until }
   let idleActionCount = 0;
@@ -49,6 +51,8 @@
   let lastSignal = 'none';
   let lastSignalAt = 0;
   let lastWorkKey = '';
+  let lastWorkRotateIdx = Math.floor(Date.now() / WORK_ROTATE_MS);
+  let lastIdleRotateIdx = Math.floor(Date.now() / IDLE_ROTATE_MS);
   // 供调试自检读取（无副作用）
   window.__whalePalDebug = {
     get idleActions() {
@@ -92,8 +96,9 @@
       const hit = list.find((f) => f.startsWith(idleOverride.name));
       if (hit) return hit;
     }
-    // work / idle 走确定性映射（同一屏幕内容 → 同一姿势）；互动姿势保留随机
-    return poseMap.chooseFile(pose, lastContext, list, Math.random);
+    // work/idle：语义组内按分钟级序号轮换；互动姿势保留随机
+    const rotate = pose === 'work' ? Math.floor(Date.now() / WORK_ROTATE_MS) : Math.floor(Date.now() / IDLE_ROTATE_MS);
+    return poseMap.chooseFile(pose, lastContext, list, Math.random, rotate);
   }
 
   // 动势换图：旧图快速下压 → 在最重的一帧换图 → 新图弹起（点击反应则瞬间切换）
@@ -619,6 +624,24 @@
 
     setInterval(() => {
       dispatch({ type: 'tick', hour: new Date().getHours(), quiet: cfg.companion.quietHours, deltaMs: 30000 });
+      // 工作姿势组内轮换：内容不变也会缓慢换姿势，避免"一直一张"
+      if (state.phase === 'work') {
+        const idx = Math.floor(Date.now() / WORK_ROTATE_MS);
+        if (idx !== lastWorkRotateIdx) {
+          lastWorkRotateIdx = idx;
+          currentPose = null;
+          refreshPose(true);
+        }
+      }
+      // 待机基础图慢轮换（小动作播放期间不动）
+      if (state.phase === 'idle' && !idleOverride) {
+        const idx = Math.floor(Date.now() / IDLE_ROTATE_MS);
+        if (idx !== lastIdleRotateIdx) {
+          lastIdleRotateIdx = idx;
+          currentPose = null;
+          refreshPose(true);
+        }
+      }
       // 参考 afk 逻辑：3 分钟无互动且主人不在工作 → 原地打盹（不移动）
       if (
         state.phase === 'idle' &&
@@ -637,11 +660,13 @@
         hour: new Date().getHours(),
         quiet: cfg.companion.quietHours
       });
-      // 同一屏幕内容 → 同一工作姿势；类别变化时才换图（闲聊已改为主进程工具门控下发）
+      // 内容所属语义组变化 → 立即换图；组内则交给上面的分钟级轮换
       if (state.phase === 'work') {
-        const key = String(evt.category || '');
-        if (key !== lastWorkKey) {
+        const key = poseMap.workGroup(evt).key;
+        const idx = Math.floor(Date.now() / WORK_ROTATE_MS);
+        if (key !== lastWorkKey || idx !== lastWorkRotateIdx) {
           lastWorkKey = key;
+          lastWorkRotateIdx = idx;
           currentPose = null;
           refreshPose(true);
         }
