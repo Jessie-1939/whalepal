@@ -47,7 +47,7 @@ cloud vision for understanding, local-only data, zero telemetry.*
 ## 快速开始
 
 ```powershell
-git clone https://github.com/Jessie-1939/whalepal-1939.git
+git clone https://github.com/Jessie-1939/whalepal.git
 cd whalepal
 npm install
 npm start
