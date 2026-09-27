@@ -1,0 +1,85 @@
+const fs = require('node:fs');
+const path = require('node:path');
+
+function pad(n) {
+  return String(n).padStart(2, '0');
+}
+
+function localDateKey(d = new Date()) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** 上下文事件存储：JSONL 追加写，超过上限自动裁剪；全部位于 data/events.jsonl。 */
+class EventStore {
+  constructor(file, maxEvents = 5000) {
+    this.file = file;
+    this.maxEvents = maxEvents;
+    this.count = 0;
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    if (!fs.existsSync(this.file)) fs.writeFileSync(this.file, '');
+    this.count = this._lines().length;
+  }
+
+  _lines() {
+    try {
+      return fs.readFileSync(this.file, 'utf8').split('\n').filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  _parseLines(lines) {
+    const out = [];
+    for (const line of lines) {
+      try {
+        out.push(JSON.parse(line));
+      } catch {
+        // 跳过损坏行
+      }
+    }
+    return out;
+  }
+
+  append(evt) {
+    fs.appendFileSync(this.file, JSON.stringify(evt) + '\n');
+    this.count++;
+    if (this.count > Math.floor(this.maxEvents * 1.2)) this._prune();
+  }
+
+  _prune() {
+    const lines = this._lines().slice(-this.maxEvents);
+    fs.writeFileSync(this.file, lines.join('\n') + '\n');
+    this.count = lines.length;
+  }
+
+  readRecent(n = 20) {
+    return this._parseLines(this._lines().slice(-n));
+  }
+
+  today() {
+    const key = localDateKey();
+    return this._parseLines(this._lines().filter((l) => l.includes(`"date":"${key}"`)));
+  }
+
+  stats() {
+    const today = this.today();
+    const byApp = {};
+    for (const e of today) {
+      const app = e.app || '未知';
+      byApp[app] = (byApp[app] || 0) + 1;
+    }
+    return {
+      total: this.count,
+      todayCount: today.length,
+      workingCount: today.filter((e) => e.isWorking).length,
+      byApp
+    };
+  }
+
+  clear() {
+    fs.writeFileSync(this.file, '');
+    this.count = 0;
+  }
+}
+
+module.exports = { EventStore, localDateKey };

@@ -1,0 +1,19 @@
+appId: com.whalepal.desktop
+productName: WhalePal
+copyright: Copyright (c) 2026 WhalePal contributors
+directories:
+  output: dist
+files:
+  - src/**
+  - package.json
+win:
+  # zip 为“绿色单文件夹”分发形态（推荐）；nsis 为可选安装包（按用户安装）
+  target:
+    - zip
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

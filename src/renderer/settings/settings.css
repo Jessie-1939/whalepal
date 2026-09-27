@@ -1,0 +1,292 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #141821;
+  color: #e8eef8;
+  font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #171c27;
+  border-bottom: 1px solid #232b3a;
+  padding: 14px 22px 0;
+}
+
+h1 {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+#tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+#tabs button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #9aa7bd;
+  padding: 8px 14px;
+  border-radius: 9px 9px 0 0;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#tabs button:hover {
+  color: #dbe5f5;
+}
+
+#tabs button.active {
+  background: #141821;
+  color: #7fb2ff;
+  font-weight: 600;
+}
+
+main {
+  padding: 18px 22px 40px;
+  max-width: 760px;
+}
+
+.card {
+  background: #1a2130;
+  border: 1px solid #232b3a;
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+
+.card h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #cfe0ff;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin: 8px 0;
+}
+
+label {
+  display: block;
+  margin: 8px 0;
+  color: #b9c6dc;
+  font-size: 13px;
+}
+
+label input[type="text"],
+label input[type="password"],
+label input[type="number"],
+select,
+textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid #2c3648;
+  background: #10141c;
+  color: #e8eef8;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+label input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #4d7fd6;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: #4d7fd6;
+}
+
+button {
+  appearance: none;
+  border: 1px solid #2c3648;
+  background: #202a3c;
+  color: #dbe5f5;
+  padding: 9px 15px;
+  border-radius: 9px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:hover {
+  border-color: #4d7fd6;
+}
+
+button.primary {
+  background: #2f5fb3;
+  border-color: #2f5fb3;
+  color: #fff;
+}
+
+button.primary:hover {
+  background: #3a6fce;
+}
+
+button.danger {
+  background: #5a2330;
+  border-color: #7a3040;
+  color: #ffd7de;
+}
+
+.hint {
+  color: #8291a8;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.status {
+  font-size: 12px;
+  color: #8fb7ff;
+}
+
+.now {
+  background: #10141c;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+#x-thumb {
+  margin-top: 10px;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid #2c3648;
+}
+
+.log {
+  background: #10141c;
+  border-radius: 10px;
+  padding: 12px;
+  min-height: 160px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.log .q {
+  color: #8fb7ff;
+  margin: 8px 0 2px;
+}
+
+.log .a {
+  color: #dbe5f5;
+  white-space: pre-wrap;
+  margin-bottom: 10px;
+}
+
+.log .src {
+  color: #66748c;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.chat-input textarea {
+  flex: 1;
+  margin-top: 0;
+  resize: vertical;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.stats .item {
+  background: #10141c;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.stats .item b {
+  display: block;
+  font-size: 18px;
+  color: #8fb7ff;
+}
+
+.stats .item span {
+  color: #8291a8;
+  font-size: 12px;
+}
+
+.events {
+  font-size: 13px;
+  color: #b9c6dc;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.events div {
+  padding: 6px 0;
+  border-bottom: 1px dashed #232b3a;
+}
+
+.events .t {
+  color: #66748c;
+  margin-right: 8px;
+}
+
+.credits {
+  margin-left: 18px;
+  color: #b9c6dc;
+  font-size: 13px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #2f5fb3;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.25s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

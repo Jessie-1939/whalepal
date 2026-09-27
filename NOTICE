@@ -1,0 +1,31 @@
+WhalePal（鲸伴）参考项目署名
+============================
+
+本项目当前处于规划阶段，后续实现将融合以下开源项目的理念与素材，
+并在采用其素材/代码时遵守各项目自身的许可证条款：
+
+1. MineContext — https://github.com/volcengine/MineContext
+   Copyright (c) Volcano Engine / contributors
+   License: Apache License 2.0
+   参考点：本地优先的上下文工程架构，以及「截屏 -> 视觉模型理解 ->
+   事件存储 -> 摘要/洞察」的上下文管线。
+
+2. dsh-whale-musume — https://github.com/Sutera-Diffusus/dsh-whale-musume
+   Copyright (c) 2026 Sutera-Diffusus
+   License: MIT（已核查 LICENSE 文件）
+   参考点：桌宠表现层交互（拖拽惯性、待机/工作状态、分区互动、
+   主动关怀、养成与成就），以及「状态机与表现层分离」的工程结构。
+   素材：src/renderer/pet/assets/poses/ 下的立绘与 logo.png 取自该项目，
+   按 MIT 许可证使用并在此署名。
+
+3. dsh-whale-pet — https://github.com/dleaf6211-hash/dsh-whale-pet
+   参考点：浏览器浮窗与 Windows 置顶小窗双形态、数据同步思路。
+
+4. dsh-whale-pet — https://github.com/luweiyabo/dsh-whale-pet
+   参考点：Agent 状态感知、透明 WebM 动画、屏幕漫游、自定义触发规则。
+
+5. dsh-maid-whale-suite — https://github.com/Zguangliang/dsh-maid-whale-suite
+   参考点：皮肤整合与视觉替换方案。
+
+素材的克隆、映射与许可证核查属于开发计划 M0 阶段任务，
+详见 docs/04-技术选型与集成方案.md 与 docs/08-风险与架构决策.md。

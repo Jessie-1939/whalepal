@@ -1,0 +1,14 @@
+# 依赖与构建产物
+node_modules/
+dist/
+out/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# 第三方参考仓库的克隆（不入库，按需拉取）
+reference/
+
+# 运行期数据（config/事件/截图/缓存/日志全部收纳于此，不入库）
+data/

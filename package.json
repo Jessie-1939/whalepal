@@ -1,0 +1,20 @@
+{
+  "name": "whalepal",
+  "productName": "WhalePal",
+  "version": "0.1.0",
+  "description": "鲸伴 WhalePal：住在桌面、看得懂你在忙什么的云端 AI 桌宠（单文件夹本地存储）",
+  "main": "src/main/main.js",
+  "author": "WhalePal contributors",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.mjs\"",
+    "check": "node scripts/check-syntax.mjs",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  }
+}

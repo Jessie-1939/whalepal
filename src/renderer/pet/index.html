@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' whalepal:; img-src 'self' whalepal: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>鲸伴</title>
+    <link rel="stylesheet" href="pet.css" />
+  </head>
+  <body data-pose="idle">
+    <div id="stage">
+      <div id="bubble" class="bubble" role="status"></div>
+      <div id="pet">
+        <img id="sprite" alt="小鲸" draggable="false" hidden />
+        <div id="sprite-emoji" class="emoji">🐋</div>
+        <div class="label" id="work-label">工作中</div>
+        <div class="label" id="sleep-label">zzz…</div>
+      </div>
+      <div id="fx-layer"></div>
+      <div id="menu">
+        <button data-action="pat">摸摸头</button>
+        <button data-action="feed">投喂小点心</button>
+        <button data-action="praise">夸夸</button>
+        <button data-action="poke">戳一下</button>
+        <button data-action="summary">今天怎么样</button>
+        <button data-action="settings">打开设置</button>
+        <button data-action="reset">回到原位</button>
+        <button data-action="toggle-walk">暂停 / 恢复走动</button>
+        <button data-action="hide">隐藏小鲸</button>
+      </div>
+    </div>
+    <script src="../core/state.js"></script>
+    <script src="../core/lines.js"></script>
+    <script src="pet.js"></script>
+  </body>
+</html>

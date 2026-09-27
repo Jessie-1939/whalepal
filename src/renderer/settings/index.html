@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' whalepal:; img-src 'self' whalepal: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>鲸伴 · 设置</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <header>
+      <h1>鲸伴 WhalePal</h1>
+      <nav id="tabs">
+        <button data-tab="companion" class="active">陪伴</button>
+        <button data-tab="context">上下文</button>
+        <button data-tab="model">云端模型</button>
+        <button data-tab="chat">对话</button>
+        <button data-tab="data">数据</button>
+        <button data-tab="about">关于</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- 陪伴 -->
+      <section id="tab-companion">
+        <div class="card">
+          <h2>称呼</h2>
+          <div class="row">
+            <label>怎么称呼你<input id="c-name" type="text" maxlength="12" /></label>
+            <label>她的自称<input id="c-self" type="text" maxlength="12" /></label>
+          </div>
+        </div>
+        <div class="card">
+          <h2>陪伴表现</h2>
+          <label class="switch"><input id="c-visible" type="checkbox" />显示桌宠</label>
+          <label class="switch"><input id="c-walk" type="checkbox" />允许在桌面走动</label>
+          <label class="switch"><input id="c-bubbles" type="checkbox" />台词气泡</label>
+          <label class="switch"><input id="c-care" type="checkbox" />主动关怀（久坐 / 深夜 / 回来打招呼）</label>
+          <div class="row">
+            <label>安静时段开始（时）<input id="c-quiet-start" type="number" min="0" max="23" /></label>
+            <label>安静时段结束（时）<input id="c-quiet-end" type="number" min="0" max="23" /></label>
+          </div>
+          <p class="hint">安静时段内小鲸不会主动闲聊；深夜仍在忙时仍会收到一次劝休息。</p>
+        </div>
+      </section>
+
+      <!-- 上下文 -->
+      <section id="tab-context" hidden>
+        <div class="card">
+          <h2>屏幕理解</h2>
+          <label class="switch"><input id="x-enabled" type="checkbox" />开启上下文感知（周期截屏 → 云端模型理解）</label>
+          <div class="row">
+            <label>感知间隔（秒，最小 15）<input id="x-interval" type="number" min="15" max="3600" /></label>
+          </div>
+          <label class="switch"><input id="x-keep" type="checkbox" />保留最新一张截图（仅 1 张，存于应用数据目录）</label>
+          <div class="row">
+            <button id="x-capture" class="primary">立即理解一次</button>
+            <span id="x-capture-status" class="status"></span>
+          </div>
+        </div>
+        <div class="card">
+          <h2>当前状态</h2>
+          <div id="x-now" class="now">还没有记录。</div>
+          <img id="x-thumb" alt="最新截图预览" hidden />
+          <p class="hint">画面没有实质变化时不会重复分析，也不会重复消耗云端调用。</p>
+        </div>
+      </section>
+
+      <!-- 云端模型 -->
+      <section id="tab-model" hidden>
+        <div class="card">
+          <h2>云端模型（OpenAI 兼容）</h2>
+          <p class="hint">
+            模型分析全部由云端完成，本应用不运行本地模型。未配置时使用「基础感知」（仅窗口标题分类，不消耗调用）。
+          </p>
+          <div class="row">
+            <label>服务预设
+              <select id="m-preset">
+                <option value="doubao">Doubao（火山方舟）</option>
+                <option value="openai">OpenAI</option>
+                <option value="custom">自定义</option>
+              </select>
+            </label>
+          </div>
+          <label>Base URL<input id="m-base" type="text" placeholder="https://.../v1" /></label>
+          <label>模型名<input id="m-model" type="text" placeholder="模型 / 接入点 ID" /></label>
+          <label>API Key<input id="m-key" type="password" placeholder="仅保存在本机 data/config.json" /></label>
+          <div class="row">
+            <button id="m-test" class="primary">测试连接</button>
+            <span id="m-test-status" class="status"></span>
+          </div>
+          <p class="hint" id="m-usage">云端调用：0 次，失败 0 次</p>
+        </div>
+      </section>
+
+      <!-- 对话 -->
+      <section id="tab-chat" hidden>
+        <div class="card">
+          <h2>和小鲸聊聊你的今天</h2>
+          <p class="hint">例：「我刚才在干嘛」「今天忙了多久」。有云端模型时由模型结合记录回答，否则由本地记录整理。</p>
+          <div class="row">
+            <button id="chat-summary" class="primary">生成今日摘要</button>
+          </div>
+          <div id="chat-log" class="log"></div>
+          <div class="chat-input">
+            <textarea id="chat-input" rows="2" placeholder="输入问题，Enter 发送（Shift+Enter 换行）"></textarea>
+            <button id="chat-send" class="primary">发送</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 数据 -->
+      <section id="tab-data" hidden>
+        <div class="card">
+          <h2>统计</h2>
+          <div id="d-stats" class="stats"></div>
+        </div>
+        <div class="card">
+          <h2>今天的最近记录</h2>
+          <div id="d-events" class="events"></div>
+        </div>
+        <div class="card">
+          <h2>管理</h2>
+          <div class="row">
+            <button id="d-showpet">找回桌宠</button>
+            <button id="d-open">打开数据目录</button>
+            <button id="d-clear" class="danger">清空上下文记录</button>
+          </div>
+          <label class="switch"><input id="d-autostart" type="checkbox" />开机自启动（写入系统启动项，随时可关）</label>
+          <p class="hint">
+            依据「only one 文件夹」原则：配置、事件、截图、缓存、日志全部存放在应用根目录的 data/ 内，
+            不写入系统图片 / 文档 / AppData 等位置。
+          </p>
+        </div>
+      </section>
+
+      <!-- 关于 -->
+      <section id="tab-about" hidden>
+        <div class="card">
+          <h2>鲸伴 WhalePal</h2>
+          <p>桌面 AI 伙伴：会走动、能互动的鲸鱼桌宠，背后用云端模型理解你在忙什么。</p>
+          <p class="hint" id="a-versions"></p>
+          <p class="hint" id="a-datadir"></p>
+        </div>
+        <div class="card">
+          <h2>致谢（参考项目）</h2>
+          <ul class="credits">
+            <li>MineContext（volcengine）— 上下文工程管线理念，Apache-2.0</li>
+            <li>dsh-whale-musume（Sutera-Diffusus）— 桌宠交互与养成设计，立绘素材来源</li>
+            <li>dsh-whale-pet（dleaf6211-hash / luweiyabo）— 双形态与状态感知思路</li>
+            <li>dsh-maid-whale-suite（Zguangliang）— 皮肤整合参考</li>
+          </ul>
+          <p class="hint">本项目以 MIT 许可开源，细节见仓库 NOTICE。</p>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="settings.js"></script>
+  </body>
+</html>
