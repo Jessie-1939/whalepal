@@ -10,183 +10,241 @@
     <link rel="stylesheet" href="settings.css" />
   </head>
   <body>
-    <header>
-      <h1>鲸伴 WhalePal</h1>
-      <nav id="tabs">
-        <button data-tab="companion" class="active">陪伴</button>
-        <button data-tab="context">上下文</button>
-        <button data-tab="calendar">日历</button>
-        <button data-tab="model">云端模型</button>
-        <button data-tab="chat">对话</button>
-        <button data-tab="data">数据</button>
-        <button data-tab="about">关于</button>
-      </nav>
+    <header class="glass-nav" id="nav">
+      <div class="nav-inner">
+        <div class="brand">
+          <span class="live-dot"></span>
+          <span class="brand-name">鲸伴 WhalePal</span>
+        </div>
+        <nav id="tabs" class="seg">
+          <button data-tab="companion" class="active">陪伴</button>
+          <button data-tab="context">上下文</button>
+          <button data-tab="calendar">日历</button>
+          <button data-tab="model">云端模型</button>
+          <button data-tab="chat">对话</button>
+          <button data-tab="data">数据</button>
+          <button data-tab="about">关于</button>
+        </nav>
+      </div>
     </header>
 
-    <main>
+    <main class="container">
       <!-- 陪伴 -->
       <section id="tab-companion">
-        <div class="card">
-          <h2>称呼</h2>
+        <p class="group-label">称呼</p>
+        <div class="panel">
           <div class="row">
-            <label>怎么称呼你<input id="c-name" type="text" maxlength="12" /></label>
-            <label>她的自称<input id="c-self" type="text" maxlength="12" /></label>
+            <div class="row-main"><div class="row-title">怎么称呼你</div></div>
+            <input id="c-name" type="text" maxlength="12" />
+          </div>
+          <div class="row">
+            <div class="row-main"><div class="row-title">她的自称</div></div>
+            <input id="c-self" type="text" maxlength="12" />
           </div>
         </div>
-        <div class="card">
-          <h2>陪伴表现</h2>
-          <label class="switch"><input id="c-visible" type="checkbox" />显示桌宠</label>
-          <label class="switch"><input id="c-walk" type="checkbox" />允许在桌面走动</label>
-          <label class="switch"><input id="c-bubbles" type="checkbox" />台词气泡</label>
-          <label class="switch"><input id="c-care" type="checkbox" />主动关怀（久坐 / 深夜 / 回来打招呼）</label>
-          <label class="switch"><input id="c-proactive" type="checkbox" />让她自己判断要不要主动搭话（需云端模型；只在值得时开口）</label>
+
+        <p class="group-label">陪伴表现</p>
+        <div class="panel">
+          <label class="row">
+            <div class="row-main"><div class="row-title">显示桌宠</div></div>
+            <input id="c-visible" type="checkbox" class="switch" />
+          </label>
+          <label class="row">
+            <div class="row-main"><div class="row-title">允许在桌面走动</div></div>
+            <input id="c-walk" type="checkbox" class="switch" />
+          </label>
+          <label class="row">
+            <div class="row-main"><div class="row-title">台词气泡</div></div>
+            <input id="c-bubbles" type="checkbox" class="switch" />
+          </label>
+          <label class="row">
+            <div class="row-main"><div class="row-title">主动关怀</div><div class="row-sub">久坐 / 深夜 / 回来打招呼</div></div>
+            <input id="c-care" type="checkbox" class="switch" />
+          </label>
+          <label class="row">
+            <div class="row-main"><div class="row-title">主动搭话</div><div class="row-sub">由云端模型判断是否值得开口（默认沉默）</div></div>
+            <input id="c-proactive" type="checkbox" class="switch" />
+          </label>
           <div class="row">
-            <label>安静时段开始（时）<input id="c-quiet-start" type="number" min="0" max="23" /></label>
-            <label>安静时段结束（时）<input id="c-quiet-end" type="number" min="0" max="23" /></label>
+            <div class="row-main"><div class="row-title">安静时段</div><div class="row-sub">时段内不主动闲聊；深夜仍在忙仅提醒一次</div></div>
+            <div class="row-control">
+              <input id="c-quiet-start" type="number" min="0" max="23" class="num" />
+              <span class="dash">—</span>
+              <input id="c-quiet-end" type="number" min="0" max="23" class="num" />
+            </div>
           </div>
-          <p class="hint">安静时段内小鲸不会主动闲聊；深夜仍在忙时仍会收到一次劝休息。</p>
         </div>
       </section>
 
       <!-- 上下文 -->
       <section id="tab-context" hidden>
-        <div class="card">
-          <h2>屏幕理解</h2>
-          <label class="switch"><input id="x-enabled" type="checkbox" />开启上下文感知（周期截屏 → 云端模型理解）</label>
+        <p class="group-label">屏幕理解</p>
+        <div class="panel">
+          <label class="row">
+            <div class="row-main"><div class="row-title">开启上下文感知</div><div class="row-sub">周期截屏 → 云端模型理解，画面无变化时不重复调用</div></div>
+            <input id="x-enabled" type="checkbox" class="switch" />
+          </label>
           <div class="row">
-            <label>感知间隔（秒，最小 15）<input id="x-interval" type="number" min="15" max="3600" /></label>
+            <div class="row-main"><div class="row-title">感知间隔</div></div>
+            <div class="row-control"><input id="x-interval" type="number" min="15" max="3600" class="num" /><span class="unit">秒</span></div>
           </div>
-          <label class="switch"><input id="x-keep" type="checkbox" />保留最新一张截图（仅 1 张，存于应用数据目录）</label>
+          <label class="row">
+            <div class="row-main"><div class="row-title">保留最新一张截图</div><div class="row-sub">仅 1 张，存于应用数据目录，可关闭</div></div>
+            <input id="x-keep" type="checkbox" class="switch" />
+          </label>
+        </div>
+
+        <p class="group-label">当前状态</p>
+        <div class="panel">
+          <div class="row row-stack">
+            <div id="x-now" class="now">还没有记录。</div>
+          </div>
           <div class="row">
-            <button id="x-capture" class="primary">立即理解一次</button>
+            <button id="x-capture" class="btn primary">立即理解一次</button>
             <span id="x-capture-status" class="status"></span>
           </div>
         </div>
-        <div class="card">
-          <h2>当前状态</h2>
-          <div id="x-now" class="now">还没有记录。</div>
-          <img id="x-thumb" alt="最新截图预览" hidden />
-          <p class="hint">画面没有实质变化时不会重复分析，也不会重复消耗云端调用。</p>
+        <div class="panel" id="x-thumb-wrap" hidden>
+          <div class="row row-stack"><img id="x-thumb" alt="最新截图预览" /></div>
         </div>
       </section>
 
       <!-- 日历 -->
       <section id="tab-calendar" hidden>
-        <div class="card">
-          <h2>活动日历（按天聚合，来自本地 events.jsonl）</h2>
+        <p class="group-label">活动日历 · 数据来自本地记录</p>
+        <div class="panel">
           <div class="cal-head">
-            <button id="cal-prev" title="上个月">‹</button>
+            <button id="cal-prev" class="btn icon" title="上个月">‹</button>
             <span id="cal-label"></span>
-            <button id="cal-next" title="下个月">›</button>
-            <span id="cal-totals" class="hint"></span>
+            <button id="cal-next" class="btn icon" title="下个月">›</button>
+            <span id="cal-totals" class="meta"></span>
           </div>
           <div class="cal-weekdays">
             <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
           </div>
           <div id="cal-grid" class="cal-grid"></div>
           <div class="cal-legend">
-            强度按专注时长：
+            <span class="meta">强度按专注时长</span>
             <i class="lvl0"></i><i class="lvl1"></i><i class="lvl2"></i><i class="lvl3"></i><i class="lvl4"></i>
-            <span>＜30m · ＜90m · ＜180m · ≥180m</span>
+            <span class="meta">＜30m · ＜90m · ＜180m · ≥180m</span>
           </div>
         </div>
-        <div class="card">
-          <h2 id="cal-day-title">点选某一天查看明细</h2>
-          <div id="cal-day-stats" class="hint"></div>
+
+        <p class="group-label">单日明细</p>
+        <div class="panel">
+          <div class="row row-stack">
+            <div class="row-title" id="cal-day-title">点选某一天查看明细</div>
+            <div class="row-sub" id="cal-day-stats"></div>
+          </div>
           <div class="row">
-            <button id="cal-summary-btn" class="primary" disabled>生成这一天摘要</button>
+            <button id="cal-summary-btn" class="btn primary" disabled>生成这一天摘要</button>
             <span id="cal-summary-status" class="status"></span>
           </div>
-          <div id="cal-summary" class="now" hidden></div>
+          <div class="row row-stack" id="cal-summary-wrap" hidden>
+            <div id="cal-summary" class="now"></div>
+          </div>
           <div id="cal-timeline" class="events"></div>
         </div>
       </section>
 
       <!-- 云端模型 -->
       <section id="tab-model" hidden>
-        <div class="card">
-          <h2>云端模型（OpenAI 兼容）</h2>
-          <p class="hint">
-            模型分析全部由云端完成，本应用不运行本地模型。未配置时使用「基础感知」（仅窗口标题分类，不消耗调用）。
-          </p>
+        <p class="group-label">供应商</p>
+        <div class="panel">
           <div class="row">
-            <label>服务预设
+            <div class="row-main"><div class="row-title">服务预设</div><div class="row-sub">模型分析全部由云端完成，本应用不运行本地模型</div></div>
+            <div class="row-control">
               <select id="m-preset">
+                <option value="bailian">阿里云百炼（Qwen）</option>
                 <option value="doubao">Doubao（火山方舟）</option>
                 <option value="openai">OpenAI</option>
                 <option value="custom">自定义</option>
               </select>
-            </label>
+            </div>
           </div>
-          <label>Base URL<input id="m-base" type="text" placeholder="https://.../v1" /></label>
-          <label>模型名<input id="m-model" type="text" placeholder="模型 / 接入点 ID" /></label>
-          <label>API Key<input id="m-key" type="password" placeholder="仅保存在本机 data/config.json" /></label>
           <div class="row">
-            <button id="m-test" class="primary">测试连接</button>
+            <div class="row-main"><div class="row-title">Base URL</div></div>
+            <div class="row-control wide"><input id="m-base" type="text" placeholder="https://.../compatible-mode/v1" /></div>
+          </div>
+          <div class="row">
+            <div class="row-main"><div class="row-title">模型名</div></div>
+            <div class="row-control wide"><input id="m-model" type="text" placeholder="模型 / 接入点 ID" /></div>
+          </div>
+          <div class="row">
+            <div class="row-main"><div class="row-title">API Key</div><div class="row-sub">仅保存在本机 data/config.json，界面不回显</div></div>
+            <div class="row-control wide"><input id="m-key" type="password" placeholder="sk-…" /></div>
+          </div>
+          <div class="row">
+            <button id="m-test" class="btn primary">测试连接</button>
             <span id="m-test-status" class="status"></span>
           </div>
-          <p class="hint" id="m-usage">云端调用：0 次，失败 0 次</p>
+          <div class="row"><div class="row-sub" id="m-usage">云端调用：0 次，失败 0 次</div></div>
         </div>
       </section>
 
       <!-- 对话 -->
       <section id="tab-chat" hidden>
-        <div class="card">
-          <h2>和小鲸聊聊你的今天</h2>
-          <p class="hint">例：「我刚才在干嘛」「今天忙了多久」。有云端模型时由模型结合记录回答，否则由本地记录整理。</p>
+        <p class="group-label">和小鲸聊聊你的今天</p>
+        <div class="panel">
           <div class="row">
-            <button id="chat-summary" class="primary">生成今日摘要</button>
+            <button id="chat-summary" class="btn primary">生成今日摘要</button>
+            <span class="meta">例：「我刚才在干嘛」「今天忙了多久」</span>
           </div>
           <div id="chat-log" class="log"></div>
           <div class="chat-input">
-            <textarea id="chat-input" rows="2" placeholder="输入问题，Enter 发送（Shift+Enter 换行）"></textarea>
-            <button id="chat-send" class="primary">发送</button>
+            <textarea id="chat-input" rows="1" placeholder="输入问题，Enter 发送"></textarea>
+            <button id="chat-send" class="btn primary">发送</button>
           </div>
         </div>
       </section>
 
       <!-- 数据 -->
       <section id="tab-data" hidden>
-        <div class="card">
-          <h2>统计</h2>
+        <p class="group-label">今天</p>
+        <div class="panel">
           <div id="d-stats" class="stats"></div>
         </div>
-        <div class="card">
-          <h2>今天的最近记录</h2>
+
+        <p class="group-label">最近记录</p>
+        <div class="panel">
           <div id="d-events" class="events"></div>
         </div>
-        <div class="card">
-          <h2>管理</h2>
+
+        <p class="group-label">管理</p>
+        <div class="panel">
           <div class="row">
-            <button id="d-showpet">找回桌宠</button>
-            <button id="d-open">打开数据目录</button>
-            <button id="d-clear" class="danger">清空上下文记录</button>
+            <button id="d-showpet" class="btn">找回桌宠</button>
+            <button id="d-open" class="btn">打开数据目录</button>
+            <button id="d-clear" class="btn">清空上下文记录</button>
           </div>
-          <label class="switch"><input id="d-autostart" type="checkbox" />开机自启动（写入系统启动项，随时可关）</label>
-          <p class="hint">
-            依据「only one 文件夹」原则：配置、事件、截图、缓存、日志全部存放在应用根目录的 data/ 内，
-            不写入系统图片 / 文档 / AppData 等位置。
-          </p>
+          <label class="row">
+            <div class="row-main"><div class="row-title">开机自启动</div><div class="row-sub">写入系统启动项，随时可关</div></div>
+            <input id="d-autostart" type="checkbox" class="switch" />
+          </label>
+          <div class="row"><div class="row-sub">
+            only one 文件夹：配置、事件、截图、缓存、日志全部存放在应用根目录的 data/ 内，不写入系统图片 / 文档 / AppData 等位置。
+          </div></div>
         </div>
       </section>
 
       <!-- 关于 -->
       <section id="tab-about" hidden>
-        <div class="card">
-          <h2>鲸伴 WhalePal</h2>
-          <p>桌面 AI 伙伴：会走动、能互动的鲸鱼桌宠，背后用云端模型理解你在忙什么。</p>
-          <p class="hint" id="a-versions"></p>
-          <p class="hint" id="a-datadir"></p>
+        <div class="hero">
+          <div class="hero-orbs"><i></i><i></i></div>
+          <h1 class="hero-title">鲸伴 WhalePal</h1>
+          <p class="hero-sub">桌面 AI 伙伴：会走动、能互动的鲸鱼桌宠，背后用云端模型理解你在忙什么。</p>
         </div>
-        <div class="card">
-          <h2>致谢（参考项目）</h2>
-          <ul class="credits">
-            <li>MineContext（volcengine）— 上下文工程管线理念，Apache-2.0</li>
-            <li>dsh-whale-musume（Sutera-Diffusus）— 桌宠交互与养成设计，立绘素材来源</li>
-            <li>dsh-whale-pet（dleaf6211-hash / luweiyabo）— 双形态与状态感知思路</li>
-            <li>dsh-maid-whale-suite（Zguangliang）— 皮肤整合参考</li>
-          </ul>
-          <p class="hint">本项目以 MIT 许可开源，细节见仓库 NOTICE。</p>
+        <p class="group-label">版本</p>
+        <div class="panel">
+          <div class="row"><div class="row-main"><div class="row-title" id="a-versions"></div></div></div>
+          <div class="row"><div class="row-main"><div class="row-sub" id="a-datadir"></div></div></div>
+        </div>
+        <p class="group-label">致谢（参考项目）</p>
+        <div class="panel">
+          <div class="row"><div class="row-main"><div class="row-title">MineContext</div><div class="row-sub">上下文工程管线、去重窗口、日历热力图思路（Apache-2.0）</div></div></div>
+          <div class="row"><div class="row-main"><div class="row-title">dsh-whale-musume</div><div class="row-sub">桌宠交互设计参考与立绘素材（MIT）</div></div></div>
+          <div class="row"><div class="row-main"><div class="row-title">dsh-whale-pet · dsh-maid-whale-suite</div><div class="row-sub">双形态、状态感知与皮肤整合参考</div></div></div>
+          <div class="row"><div class="row-main"><div class="row-sub">本项目以 MIT 许可开源，细节见仓库 NOTICE。</div></div></div>
         </div>
       </section>
     </main>

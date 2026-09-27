@@ -138,7 +138,7 @@ function createSettingsWindow({ preloadPath, htmlPath }) {
     minHeight: 560,
     title: '鲸伴 · 设置',
     autoHideMenuBar: true,
-    backgroundColor: '#141821',
+    backgroundColor: '#f5f5f7',
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,

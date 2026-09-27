@@ -126,7 +126,7 @@ function normalizeCloudResult(parsed, { title = '', process = '' } = {}) {
 }
 
 /** 调用云端视觉模型（OpenAI 兼容）。失败时抛出错误，由 analyze() 统一降级。 */
-async function cloudAnalyze({ jpegBase64, title = '', process = '', cfg, timeoutMs = 15000 }) {
+async function cloudAnalyze({ jpegBase64, title = '', process = '', cfg, timeoutMs = 45000 }) {
   const base = String(cfg.model.baseUrl || '').replace(/\/+$/, '');
   const body = {
     model: cfg.model.model,
@@ -143,6 +143,10 @@ async function cloudAnalyze({ jpegBase64, title = '', process = '', cfg, timeout
       }
     ]
   };
+  // 预设附加参数（如百炼 Qwen-Omni 需要 modalities:["text"]）
+  if (cfg.model.extraBody && typeof cfg.model.extraBody === 'object') {
+    Object.assign(body, cfg.model.extraBody);
+  }
   const resp = await fetchWithTimeout(
     `${base}/chat/completions`,
     {

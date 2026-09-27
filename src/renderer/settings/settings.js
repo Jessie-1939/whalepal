@@ -3,11 +3,8 @@
   const api = window.whalePal;
   const $ = (s) => document.querySelector(s);
 
-  const PRESETS = {
-    doubao: { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-1-6-flash-250828' },
-    openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
-    custom: null
-  };
+  // 供应商预设由主进程统一提供（config:presets），避免两处定义漂移
+  let presets = {};
 
   let cfg = null;
   let toastTimer = null;
@@ -114,7 +111,8 @@
       tl.appendChild(div);
     }
     $('#cal-summary-btn').disabled = !agg.count;
-    $('#cal-summary').hidden = true;
+    $('#cal-summary-wrap').hidden = true;
+    $('#cal-summary').textContent = '';
     $('#cal-summary-status').textContent = '';
     refreshCalendar();
   }
@@ -142,7 +140,7 @@
       status.textContent = '正在整理…';
       const r = await api.invoke('context:day-summary', cal.selected);
       const box = $('#cal-summary');
-      box.hidden = false;
+      $('#cal-summary-wrap').hidden = false;
       box.textContent = r.text;
       status.textContent = r.source === 'cloud' ? '（云端模型）' : '（本地记录整理）';
     });
@@ -182,9 +180,10 @@
   function renderNow(evt) {
     const box = $('#x-now');
     const thumb = $('#x-thumb');
+    const thumbWrap = $('#x-thumb-wrap');
     if (!evt) {
       box.textContent = '还没有记录。配置云端模型后点「立即理解一次」试试。';
-      thumb.hidden = true;
+      thumbWrap.hidden = true;
       return;
     }
     const srcText = evt.source === 'cloud' ? '云端模型' : '基础感知（非模型）';
@@ -200,9 +199,9 @@
       .filter(Boolean)
       .join('\n');
     thumb.src = `whalepal://data/screenshots/latest.jpg?t=${Date.now()}`;
-    thumb.hidden = false;
+    thumbWrap.hidden = false;
     thumb.onerror = () => {
-      thumb.hidden = true;
+      thumbWrap.hidden = true;
     };
   }
 
@@ -246,14 +245,23 @@
     $('#m-key').value = cfg.model.apiKey;
 
     $('#m-preset').addEventListener('change', (e) => {
-      const p = PRESETS[e.target.value];
+      const p = presets[e.target.value];
       if (p) {
-        $('#m-base').value = p.baseUrl;
-        $('#m-model').value = p.model;
+        if (p.baseUrl) $('#m-base').value = p.baseUrl;
+        if (p.model) $('#m-model').value = p.model;
       }
-      save({ model: { preset: e.target.value, baseUrl: $('#m-base').value, model: $('#m-model').value } });
+      save({
+        model: {
+          preset: e.target.value,
+          baseUrl: $('#m-base').value,
+          model: $('#m-model').value,
+          extraBody: (p && p.extraBody) || {}
+        }
+      });
     });
-    $('#m-base').addEventListener('change', (e) => save({ model: { baseUrl: e.target.value.trim(), preset: 'custom' } }));
+    $('#m-base').addEventListener('change', (e) =>
+      save({ model: { baseUrl: e.target.value.trim(), preset: 'custom', extraBody: {} } })
+    );
     $('#m-model').addEventListener('change', (e) => save({ model: { model: e.target.value.trim() } }));
     $('#m-key').addEventListener('change', (e) => save({ model: { apiKey: e.target.value.trim() } }));
     $('#m-test').addEventListener('click', async () => {
@@ -336,8 +344,8 @@
         b.textContent = String(value);
         const span = document.createElement('span');
         span.textContent = label;
-        div.appendChild(b);
         div.appendChild(span);
+        div.appendChild(b);
         $('#d-stats').appendChild(div);
       }
       $('#m-usage').textContent = `云端调用：${usage.calls || 0} 次，失败降级：${usage.failures || 0} 次`;
@@ -397,6 +405,7 @@
 
   async function init() {
     cfg = await api.invoke('config:get');
+    presets = await api.invoke('config:presets');
     bindTabs();
     bindCompanion();
     bindContext();
@@ -411,6 +420,14 @@
     setInterval(refreshStats, 30000);
     api.on('context:update', () => refreshNow());
     api.on('settings:goto', ({ tab }) => switchTab(tab));
+
+    // scroll-edge：内容滚到导航下方时才出现发丝线与浅阴影
+    const nav = document.getElementById('nav');
+    window.addEventListener(
+      'scroll',
+      () => nav.classList.toggle('scrolled', window.scrollY > 8),
+      { passive: true }
+    );
   }
 
   init().catch((err) => {

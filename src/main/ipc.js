@@ -2,12 +2,14 @@ const { ipcMain, app, shell } = require('electron');
 const { workAreaFor, PET_W, PET_H } = require('./windows');
 const chat = require('./context/chat');
 const calendar = require('./context/calendar');
+const { MODEL_PRESETS } = require('./config');
 
 function registerIpc(rt) {
   const { configStore, store, engine, dialogue, DATA_ROOT, APP_ROOT, broadcast } = rt;
 
   // ---- 配置 ----
   ipcMain.handle('config:get', () => configStore.get());
+  ipcMain.handle('config:presets', () => MODEL_PRESETS);
   ipcMain.handle('config:set', (_e, patch) => {
     const cfg = configStore.update(patch || {});
     if (patch && patch.context) engine.reschedule();

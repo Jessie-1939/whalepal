@@ -2,6 +2,11 @@ const fs = require('node:fs');
 
 /** 云端模型预设（本项目不提供本地模型，模型分析全部走云端 OpenAI 兼容接口）。 */
 const MODEL_PRESETS = {
+  bailian: {
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen3.8-omni-flash',
+    extraBody: { modalities: ['text'], enable_thinking: false }
+  },
   doubao: { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-1-6-flash-250828' },
   openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
   custom: {}
@@ -27,10 +32,11 @@ const DEFAULTS = {
   },
   // 云端模型配置：未填 API Key 时使用「基础感知」（非模型，仅窗口标题分类）
   model: {
-    preset: 'doubao',
-    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    preset: 'bailian',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     apiKey: '',
-    model: 'doubao-seed-1-6-flash-250828'
+    model: 'qwen3.8-omni-flash',
+    extraBody: { modalities: ['text'], enable_thinking: false }
   },
   system: {
     autostart: false

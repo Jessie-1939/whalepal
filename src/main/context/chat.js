@@ -17,14 +17,19 @@ async function fetchWithTimeout(url, options, timeoutMs) {
 }
 
 /** 底层调用：POST {baseUrl}/chat/completions，返回解析后的响应 JSON（支持 tools 等任意参数）。 */
-async function chatCompletion(payload, cfg, { timeoutMs = 20000 } = {}) {
+function mergeExtraBody(payload, cfg) {
+  const extra = cfg?.model?.extraBody;
+  return extra && typeof extra === 'object' ? { ...payload, ...extra } : payload;
+}
+
+async function chatCompletion(payload, cfg, { timeoutMs = 30000 } = {}) {
   const base = String(cfg.model.baseUrl || '').replace(/\/+$/, '');
   const resp = await fetchWithTimeout(
     `${base}/chat/completions`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.model.apiKey}` },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(mergeExtraBody(payload, cfg))
     },
     timeoutMs
   );
@@ -35,7 +40,7 @@ async function chatCompletion(payload, cfg, { timeoutMs = 20000 } = {}) {
   return resp.json();
 }
 
-async function cloudChat(messages, cfg, { timeoutMs = 20000, temperature = 0.5 } = {}) {
+async function cloudChat(messages, cfg, { timeoutMs = 30000, temperature = 0.5 } = {}) {
   const data = await chatCompletion({ model: cfg.model.model, temperature, messages }, cfg, { timeoutMs });
   const content = data?.choices?.[0]?.message?.content;
   if (!content) throw new Error('云端返回为空');
@@ -250,6 +255,7 @@ async function testModel(cfg) {
 
 module.exports = {
   chatCompletion,
+  mergeExtraBody,
   ask,
   summary,
   summaryForDay,
