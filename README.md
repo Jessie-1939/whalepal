@@ -12,6 +12,7 @@
 1. **模型分析全部在云端完成**：使用 OpenAI 兼容接口（阿里云百炼 Qwen / Doubao / OpenAI / 自定义），本项目不运行本地模型。未配置 API Key 时使用「基础感知」（仅按前台窗口标题做关键词分类，不消耗调用），保证桌宠基础联动可用。
 2. **only one 文件夹**：代码、配置、截图、事件、缓存、日志全部收纳在应用自己的文件夹内。打包分发为绿色 zip（推荐）时，`<应用目录>/data/` 就是全部运行数据的唯一去处；不写入系统图片 / 文档 / AppData 等位置。
 3. **本机 PowerShell 采用 PowerShell 7**：前台窗口探测优先调用 `pwsh.exe`，找不到时回退 Windows PowerShell 5.1。
+4. **隐私硬保证**：所有数据只落在 `<应用目录>/data/`；不配置模型 Key 时**零联网**；配置后也只有**你填写的那个模型端点**能收到数据（截图仅在"画面变化的理解"与"现在类提问"两个时刻发送）。唯一网络出口在代码层做了白名单校验，详见 [docs/11-隐私与数据流.md](docs/11-隐私与数据流.md)。
 
 ## 已实现（M1–M4）
 
@@ -48,6 +49,28 @@ npm run check   # 全量语法检查
 npm run dist    # 打包：dist/ 下产出 zip（绿色单文件夹）与 NSIS 安装包
 ```
 
+### 新机器 / 新克隆的完整步骤
+
+```powershell
+git clone <仓库地址>
+cd camera_des_llm
+npm install
+npm test        # 可选：单元测试
+npm start
+```
+
+**开箱即用**：立绘素材（43 张 + logo，约 5.6MB）随仓库提交，无需任何额外下载或配置；
+不填 API Key 也能完整运行（基础感知 / 关怀 / 日历 / 模板问答），填了 Key 才启用云端理解。
+
+**常见问题**（都是实际踩过的坑）：
+
+- Electron 下载慢或失败（中国大陆常见）：
+  `$env:ELECTRON_MIRROR='https://npmmirror.com/mirrors/electron/'; npm install`
+- npm 11 提示 install scripts 被 allow-scripts 拦截（Electron 二进制没装成）：
+  `node node_modules/electron/install.js`（可先设上面的镜像环境变量）。
+- git 报 dubious ownership：`git config --global --add safe.directory <仓库路径>`。
+- 找不到桌宠：右键托盘图标（🟢 小鲸 logo）→ 显示，或设置 → 数据 → 找回桌宠。
+
 ### 立绘素材
 
 把鲸鱼娘仓库（Sutera-Diffusus/dsh-whale-musume）的立绘按其含义拷贝进
@@ -83,6 +106,7 @@ npm run dist    # 打包：dist/ 下产出 zip（绿色单文件夹）与 NSIS �
 | [docs/08-风险与架构决策.md](docs/08-风险与架构决策.md) | 风险登记与 ADR |
 | [docs/09-实现约定变更.md](docs/09-实现约定变更.md) | 云端模型 / 单文件夹 / PowerShell 7 的约定记录 |
 | [docs/10-上下文设计.md](docs/10-上下文设计.md) | 上下文分层设计、图片 vs 文本投放规则、市面项目调研 |
+| [docs/11-隐私与数据流.md](docs/11-隐私与数据流.md) | 隐私硬保证、出网清单、三道代码级保障、自查方法 |
 
 ## 验证记录（2026-09-27）
 

@@ -58,6 +58,16 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
+  // 隐私加固：关闭 Chromium 的后台联网（连通性探测 / 组件更新 / 同步 / 崩溃上报等），
+  // 保证除「用户配置的模型端点」外，应用不会发起任何网络请求。
+  app.commandLine.appendSwitch('disable-background-networking');
+  app.commandLine.appendSwitch('disable-component-update');
+  app.commandLine.appendSwitch('disable-domain-reliability');
+  app.commandLine.appendSwitch('disable-sync');
+  app.commandLine.appendSwitch('no-pings');
+  app.commandLine.appendSwitch('disable-breakpad');
+  app.commandLine.appendSwitch('disable-crash-reporter');
+
   app.on('second-instance', () => {
     if (!rt) return;
     rt.showPet();

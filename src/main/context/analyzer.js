@@ -5,6 +5,7 @@
  */
 
 const WORKING = new Set(['coding', 'office', 'writing', 'design', 'meeting', 'reading', 'terminal']);
+const { guardedFetch } = require('./net');
 const CATEGORIES = new Set([
   'coding', 'office', 'writing', 'design', 'meeting', 'reading',
   'video', 'chat', 'browsing', 'gaming', 'terminal', 'idle', 'other'
@@ -100,16 +101,6 @@ function parseJsonLoose(text) {
   }
 }
 
-async function fetchWithTimeout(url, options, timeoutMs) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: ctrl.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 function normalizeCloudResult(parsed, { title = '', process = '' } = {}) {
   const category = CATEGORIES.has(parsed?.category) ? parsed.category : classifyWindow(title, process);
   const isWorking = typeof parsed?.isWorking === 'boolean' ? parsed.isWorking : WORKING.has(category);
@@ -147,14 +138,15 @@ async function cloudAnalyze({ jpegBase64, title = '', process = '', cfg, timeout
   if (cfg.model.extraBody && typeof cfg.model.extraBody === 'object') {
     Object.assign(body, cfg.model.extraBody);
   }
-  const resp = await fetchWithTimeout(
+  const resp = await guardedFetch(
     `${base}/chat/completions`,
     {
+      cfg,
+      timeoutMs,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.model.apiKey}` },
       body: JSON.stringify(body)
-    },
-    timeoutMs
+    }
   );
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');

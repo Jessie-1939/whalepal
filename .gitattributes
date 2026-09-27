@@ -1,0 +1,12 @@
+# 统一换行：文本走 LF，二进制资产一律不做转换（防止 PNG/WebP 被改坏）
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.woff2 binary
+
+# 锁文件按文本合并
+package-lock.json text eol=lf

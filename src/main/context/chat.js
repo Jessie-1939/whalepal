@@ -6,16 +6,7 @@
 const { personaSystemPrompt } = require('./persona');
 const calendar = require('./calendar');
 const { buildQuestionContext } = require('./builder');
-
-async function fetchWithTimeout(url, options, timeoutMs) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: ctrl.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
+const { guardedFetch } = require('./net');
 
 /** 底层调用：POST {baseUrl}/chat/completions，返回解析后的响应 JSON（支持 tools 等任意参数）。 */
 function mergeExtraBody(payload, cfg) {
@@ -25,14 +16,15 @@ function mergeExtraBody(payload, cfg) {
 
 async function chatCompletion(payload, cfg, { timeoutMs = 30000 } = {}) {
   const base = String(cfg.model.baseUrl || '').replace(/\/+$/, '');
-  const resp = await fetchWithTimeout(
+  const resp = await guardedFetch(
     `${base}/chat/completions`,
     {
+      cfg,
+      timeoutMs,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.model.apiKey}` },
       body: JSON.stringify(mergeExtraBody(payload, cfg))
-    },
-    timeoutMs
+    }
   );
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
