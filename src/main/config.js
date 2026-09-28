@@ -31,6 +31,8 @@ const DEFAULTS = {
     enabled: true,
     intervalSec: 60,
     keepScreenshots: true,
+    // 读取前台窗口无障碍树文本（本机只读，随分析请求作为精确文本提示；可关）
+    uiText: true,
     maxEvents: 5000
   },
   // 云端模型配置：未填 API Key 时使用「基础感知」（非模型，仅窗口标题分类）

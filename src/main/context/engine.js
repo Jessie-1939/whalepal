@@ -14,12 +14,13 @@ const HASH_WINDOW = 6;
  * 画面未变化的轮次会累加为当前事件的「驻留时长」（durationMs），供日历与日报统计。
  */
 class ContextEngine {
-  constructor({ config, store, files, capture, activeWindow, onEvent, logger = console }) {
+  constructor({ config, store, files, capture, activeWindow, uiText = null, onEvent, logger = console }) {
     this.config = config;
     this.store = store;
     this.files = files;
     this.capture = capture;
     this.activeWindow = activeWindow;
+    this.uiText = uiText;
     this.onEvent = onEvent;
     this.logger = logger;
     this.timer = null;
@@ -108,7 +109,16 @@ class ContextEngine {
     }
 
     const aw = await this.activeWindow().catch(() => ({ title: '', process: '' }));
-    const result = await analyze({ jpeg, title: aw.title, process: aw.process, cfg });
+    // 无障碍树文本摘录（可关）：本机只读、近零成本，给云端分析补上精确的文件名/报错原文
+    let texts = [];
+    if (cfg.context.uiText !== false && typeof this.uiText === 'function') {
+      try {
+        texts = (await this.uiText(aw)) || [];
+      } catch {
+        texts = [];
+      }
+    }
+    const result = await analyze({ jpeg, title: aw.title, process: aw.process, texts, cfg });
     const cloudReady = !!(cfg.model.apiKey && cfg.model.model && cfg.model.baseUrl);
     if (cloudReady) {
       this.usage.calls += 1;
@@ -129,6 +139,9 @@ class ContextEngine {
       title: aw.title || '',
       isWorking: !!result.isWorking,
       signal: result.signal || 'none',
+      detail: result.detail || '',
+      entities: result.entities || { project: '', files: [], keywords: [] },
+      topics: Array.isArray(result.topics) ? result.topics : [],
       note: result.note || '',
       suggest: result.suggest || '',
       source: result.source,

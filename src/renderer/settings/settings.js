@@ -220,11 +220,22 @@
       return;
     }
     const srcText = evt.source === 'cloud' ? '云端模型' : '基础感知（非模型）';
+    const ent = evt.entities || {};
+    const entLine = [
+      ent.project ? `项目：${ent.project}` : '',
+      Array.isArray(ent.files) && ent.files.length ? `文件：${ent.files.join('、')}` : '',
+      Array.isArray(ent.keywords) && ent.keywords.length ? `关键词：${ent.keywords.join('、')}` : ''
+    ]
+      .filter(Boolean)
+      .join(' · ');
     box.textContent = [
       `时间：${evt.time || ''}`,
       `活动：${evt.activity || '未知'}`,
       `类别：${evt.category || ''}${evt.isWorking ? '（工作中）' : '（空闲/娱乐）'}`,
       `应用：${evt.app || '未知'}`,
+      evt.detail ? `细节：${evt.detail}` : '',
+      entLine ? `实体：${entLine}` : '',
+      Array.isArray(evt.topics) && evt.topics.length ? `主题：${evt.topics.join('、')}` : '',
       evt.note ? `观察：${evt.note}` : '',
       `来源：${srcText}`,
       evt.cloudError ? `云端提示：${evt.cloudError}` : ''
@@ -251,8 +262,10 @@
     $('#x-enabled').checked = cfg.context.enabled;
     $('#x-interval').value = cfg.context.intervalSec;
     $('#x-keep').checked = cfg.context.keepScreenshots;
+    $('#x-uitext').checked = cfg.context.uiText !== false;
     $('#x-enabled').addEventListener('change', (e) => save({ context: { enabled: e.target.checked } }));
     $('#x-keep').addEventListener('change', (e) => save({ context: { keepScreenshots: e.target.checked } }));
+    $('#x-uitext').addEventListener('change', (e) => save({ context: { uiText: e.target.checked } }));
     $('#x-interval').addEventListener('change', (e) => {
       const v = Math.min(3600, Math.max(15, Number(e.target.value) || 60));
       e.target.value = v;

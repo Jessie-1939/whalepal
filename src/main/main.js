@@ -11,7 +11,7 @@ const { evaluateProactiveGates, decideWithModel, generateTrialLine, TIMEOUT_LINE
 const { ContextEngine } = require('./context/engine');
 const { CareManager } = require('./context/care');
 const { capturePrimaryScreen } = require('./context/capture');
-const { getActiveWindow } = require('./context/activeWindow');
+const { getActiveWindow, getUiText } = require('./context/activeWindow');
 const { registerAssetProtocol, scanPoses, createPetWindow, createSettingsWindow, defaultPetPosition } = require('./windows');
 const { createTray } = require('./tray');
 const { registerIpc } = require('./ipc');
@@ -157,6 +157,7 @@ async function bootstrap() {
     files: files(),
     capture: () => capturePrimaryScreen({ width: 1280, height: 720 }),
     activeWindow: () => getActiveWindow(),
+    uiText: (aw) => (aw && aw.process ? getUiText({ process: aw.process }) : []),
     onEvent: (evt) => {
       broadcast('context:update', evt);
       care.onEvent(evt);

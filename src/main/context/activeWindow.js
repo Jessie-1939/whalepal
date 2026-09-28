@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { DATA_ROOT } = require('../paths');
+const { UI_TEXT_PS1, filterUiTexts, createUiTextPolicy } = require('./uiText');
 
 /**
  * 读取前台窗口标题与进程名（仅本机只读，不外发）。
@@ -40,12 +41,12 @@ $result = [ordered]@{ title = $title; process = $procName; pid = [int]$pidValue 
 Write-Output ($result | ConvertTo-Json -Compress)
 `;
 
-function ensureScript() {
+function ensureScript(name, content) {
   const dir = path.join(DATA_ROOT, 'scripts');
   fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, 'active-window.ps1');
+  const file = path.join(dir, name);
   // 始终重写：脚本内容随版本更新，避免旧副本导致行为不一致
-  fs.writeFileSync(file, PS1, 'utf8');
+  fs.writeFileSync(file, content, 'utf8');
   return file;
 }
 
@@ -61,7 +62,7 @@ function runWith(command, file, timeoutMs) {
 }
 
 async function getActiveWindow({ timeoutMs = 5000 } = {}) {
-  const file = ensureScript();
+  const file = ensureScript('active-window.ps1', PS1);
   for (const command of ['pwsh.exe', 'pwsh', 'powershell.exe']) {
     try {
       const stdout = await runWith(command, file, timeoutMs);
@@ -78,4 +79,40 @@ async function getActiveWindow({ timeoutMs = 5000 } = {}) {
   return { title: '', process: '', pid: 0, error: 'powershell-unavailable' };
 }
 
-module.exports = { getActiveWindow };
+const uiPolicy = createUiTextPolicy();
+
+/**
+ * 读取前台窗口的无障碍树文本摘录（本机只读，失败/超时/空一律返回 []，绝不抛错）。
+ * 调用方只在「画面确有变化」时调用（引擎侧已去重），并由 uiPolicy 控制超时与负缓存。
+ */
+async function getUiText({ process = '', timeoutMs } = {}) {
+  const key = String(process || '').toLowerCase();
+  if (uiPolicy.skip(key)) return [];
+  const ms = Number(timeoutMs) || uiPolicy.timeoutFor(key);
+  const file = ensureScript('ui-text.ps1', UI_TEXT_PS1);
+  for (const command of ['pwsh.exe', 'pwsh', 'powershell.exe']) {
+    try {
+      const stdout = await runWith(command, file, ms);
+      let parsed = {};
+      try {
+        parsed = JSON.parse(String(stdout).trim() || '{}');
+      } catch {
+        parsed = {};
+      }
+      const texts = filterUiTexts(parsed.texts);
+      uiPolicy.record(key, { ok: texts.length > 0 });
+      return texts;
+    } catch (err) {
+      const timedOut = !!(err && (err.killed || /timed?\s?out/i.test(String(err.message))));
+      if (timedOut) {
+        // Chromium 系冷启动会长时间阻塞：直接放弃本轮，交给负缓存
+        uiPolicy.record(key, { ok: false, timedOut: true });
+        return [];
+      }
+      // 非超时（ENOENT / 解析失败等）→ 尝试下一个命令
+    }
+  }
+  return [];
+}
+
+module.exports = { getActiveWindow, getUiText };

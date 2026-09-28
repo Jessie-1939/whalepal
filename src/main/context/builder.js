@@ -28,11 +28,15 @@ function detectIntents(question) {
 
 function slimEvent(e) {
   const minutes = Math.round((Number(e.durationMs) > 0 ? Number(e.durationMs) : 0) / 60000);
+  const project = e.entities && e.entities.project ? String(e.entities.project).slice(0, 24) : '';
   return {
     time: e.time,
     activity: e.activity,
     app: e.app,
     working: !!e.isWorking,
+    // 细节只在存在时进上下文：让「我刚才在干嘛」答得更具体，同时控制 token
+    ...(e.detail ? { detail: String(e.detail).slice(0, 48) } : {}),
+    ...(project ? { project } : {}),
     ...(minutes > 0 ? { minutes } : {})
   };
 }
