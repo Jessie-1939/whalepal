@@ -106,6 +106,8 @@ function basicAnalyze({ title = '', process = '', texts = [] } = {}) {
     app: app || '',
     isWorking: WORKING.has(category),
     signal: 'none',
+    // 离线基础感知不做"要不要说出口"的模型判断，交给本地的节流规则（notes.shouldSpeakNote）
+    speak: false,
     detail: detailParts.join('；').slice(0, 120),
     entities: {
       project: '',
@@ -120,15 +122,16 @@ function basicAnalyze({ title = '', process = '', texts = [] } = {}) {
 }
 
 const ANALYZE_SYSTEM = `你是桌面陪伴应用的屏幕理解模块。根据屏幕截图与当前前台窗口信息，判断用户此刻在做什么，输出严格 JSON（不要输出任何多余文字）：
-{"activity":"一句话描述用户正在做什么（中文，不超过20字）","category":"coding|office|writing|design|meeting|reading|video|chat|browsing|gaming|terminal|idle|other","app":"最相关的应用名","isWorking":true或false,"signal":"none|error|success","detail":"更具体的描述（不超过60字）：在做什么、屏幕上的关键信息（文件名/页面/报错原文的关键部分）","entities":{"project":"项目或文档名（可空）","files":["具体文件名或页面标题（最多3个）"],"keywords":["关键词（最多5个）"]},"topics":["主题词（最多3个，如：论文/毕设/调试/找实习）"],"note":"给同伴的一句温柔观察（不超过30字，可为空字符串）","suggest":"可选的小提醒（不超过30字，可为空字符串）"}
+{"activity":"一句话描述用户正在做什么（中文，不超过20字）","category":"coding|office|writing|design|meeting|reading|video|chat|browsing|gaming|terminal|idle|other","app":"最相关的应用名","isWorking":true或false,"signal":"none|error|success","speak":true或false,"detail":"更具体的描述（不超过60字）：在做什么、屏幕上的关键信息（文件名/页面/报错原文的关键部分）","entities":{"project":"项目或文档名（可空）","files":["具体文件名或页面标题（最多3个）"],"keywords":["关键词（最多5个）"]},"topics":["主题词（最多3个，如：论文/毕设/调试/找实习）"],"note":"给同伴的一句温柔观察（不超过30字，可为空字符串）","suggest":"可选的小提醒（不超过30字，可为空字符串）"}
 判断规则：写代码、写文档、做设计、开会、读资料、终端命令等生产/学习行为 isWorking=true；看视频、游戏、聊天、浏览、发呆、桌面空闲 isWorking=false。
 signal 判定：屏幕上出现明确的报错/失败/异常（红色错误提示、异常堆栈、测试失败、构建失败）→ "error"；出现明确的完成/成功（构建通过、测试全绿、任务完成提示）→ "success"；其余一律 "none"。
 detail 与 entities 请从截图和下方「窗口文本摘录」中提取真实出现过的名字（文件名、项目名、报错关键行），不要编造；提取不到就留空数组/空字符串。
 「窗口文本摘录」是操作系统无障碍树里的精确文本（不是 OCR），凡与屏幕上看到的一致就以它为准；topics 用来概括"这段时间在忙什么主题"，便于以后跨天回忆。
 隐私红线：绝不复述屏幕上的密码、密钥、金额、身份证号或聊天内容原文。
 note 字段请用「鲸鱼娘」的口吻（傲娇但甜、略微慵懒），不超过 30 字，写**具体的观察**（在做什么、卡在哪、节奏如何）。
-note 的意象要求：不要每条都写尾巴——「甩尾巴」这类小动作平均每 5 条最多出现 1 条，且不要连续两条用同一个意象；
-也绝不要与下方「最近已用过的观察」重复或换汤不换药（例如把同一句换个语气词）。`;
+note 请每次换一个说法，别老是同一个梗（例如每条都在提尾巴）；也不要与下方「最近已用过的观察」重复或换汤不换药。
+speak 的判定：只有这条观察真的值得此刻在桌面上说出来（有趣的发现、值得提醒的事、能陪到他）才 true；
+日常重复的操作、无话可说时一律 false——沉默也是一种陪伴。`;
 
 function parseJsonLoose(text) {
   if (!text) return null;
@@ -154,6 +157,7 @@ function normalizeCloudResult(parsed, { title = '', process = '' } = {}) {
     app,
     isWorking,
     signal: ['error', 'success'].includes(parsed?.signal) ? parsed.signal : 'none',
+    speak: parsed?.speak === true,
     detail: String(parsed?.detail || '').slice(0, 120),
     entities: sanitizeEntities(parsed?.entities),
     topics: sanitizeTopics(parsed?.topics),

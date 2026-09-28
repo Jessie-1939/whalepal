@@ -173,6 +173,8 @@ async function bootstrap() {
       now: Date.now(),
       hour: new Date().getHours(),
       lastNoteAt: lastNote ? lastNote.ts : 0,
+      // 云端事件：说与不说由模型自己判断（speak 字段）；离线事件：退回本地节奏规则
+      cloud: evt.source === 'cloud',
       recentPetLines: dialogue
         .recent(20)
         .filter((e) => e.role === 'pet')

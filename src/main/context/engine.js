@@ -125,7 +125,10 @@ class ContextEngine {
       .map((e) => e.note)
       .filter(Boolean);
     const result = await analyze({ jpeg, title: aw.title, process: aw.process, texts, recentNotes, cfg });
-    result.note = ensureFreshNote(result.note, recentNotes, { category: result.category });
+    // 观察台词的新鲜度兜底只在离线（基础感知）时用：云端给的观察原样保留，由模型自己换说法
+    if (result.source !== 'cloud') {
+      result.note = ensureFreshNote(result.note, recentNotes, { category: result.category });
+    }
     const cloudReady = !!(cfg.model.apiKey && cfg.model.model && cfg.model.baseUrl);
     if (cloudReady) {
       this.usage.calls += 1;
@@ -146,6 +149,7 @@ class ContextEngine {
       title: aw.title || '',
       isWorking: !!result.isWorking,
       signal: result.signal || 'none',
+      speak: result.speak === true,
       detail: result.detail || '',
       entities: result.entities || { project: '', files: [], keywords: [] },
       topics: Array.isArray(result.topics) ? result.topics : [],

@@ -79,9 +79,10 @@
     const rng = (helpers && helpers.rng) || Math.random;
     const L = (helpers && helpers.lines) || {};
     const pick = (pool) => (pool && pool.length ? pool[Math.floor(rng() * pool.length)] : '');
-    const say = (pool, ms = 5000) => {
+    // kind 只是"这次为什么说话"的标签：渲染层据此决定让云端模型现写（连不上云再用 text 兜底）
+    const say = (pool, ms = 5000, kind = '') => {
       const text = pick(pool);
-      if (text) actions.push({ type: 'say', text, ms });
+      if (text) actions.push({ type: 'say', text, ms, ...(kind ? { kind } : {}) });
     };
     const unlock = (id) => {
       if (!s.achievements[id]) {
@@ -196,7 +197,7 @@
         const pose = zone === 'head' ? 'shy' : 'happy';
         react(pose);
         actions.push({ type: 'fx', value: zone === 'head' ? 'hearts' : zone === 'belly' ? 'bubbles' : 'stars' });
-        say((L.interaction && L.interaction[zone]) || [], 4500);
+        say((L.interaction && L.interaction[zone]) || [], 4500, `pat-${zone}`);
         unlock('first_pat');
         break;
       }
@@ -207,7 +208,7 @@
         gainAffinity(3);
         react('celebrate', 2600);
         actions.push({ type: 'fx', value: 'stars' });
-        say(L.triple || [], 6000);
+        say(L.triple || [], 6000, 'triple');
         unlock('triple_3');
         break;
       }
@@ -218,7 +219,7 @@
         gainAffinity(2);
         react('eat');
         actions.push({ type: 'fx', value: 'hearts' });
-        say(L.feed || []);
+        say(L.feed || [], 5000, 'feed');
         unlock('first_feed');
         break;
       }
@@ -229,7 +230,7 @@
         gainAffinity(2);
         react('happy');
         actions.push({ type: 'fx', value: 'stars' });
-        say(L.praise || []);
+        say(L.praise || [], 5000, 'praise');
         unlock('first_praise');
         break;
       }
@@ -238,20 +239,20 @@
         s.pokeCount += 1;
         s.mood = clamp(s.mood - 5, 0, 100);
         react('angry');
-        say(L.poke || []);
+        say(L.poke || [], 5000, 'poke');
         break;
       }
 
       case 'care': {
         s.careCount += 1;
         if (event.tag === 'night') unlock('care_night');
-        say((L.care && L.care[event.tag]) || [], 7000);
+        say((L.care && L.care[event.tag]) || [], 7000, `care-${event.tag || ''}`);
         break;
       }
 
       case 'chatter': {
         const pool = (L.context && L.context[event.category]) || L.context?.other || [];
-        say(pool, 5000);
+        say(pool, 5000, 'chatter');
         break;
       }
 
@@ -282,10 +283,10 @@
         if (s.phase === 'drag') break;
         if (event.kind === 'error') {
           react('failure', 8000);
-          say(L.signal?.error || [], 8000);
+          say(L.signal?.error || [], 8000, 'signal-error');
         } else if (event.kind === 'success') {
           react('success', 6000);
-          say(L.signal?.success || [], 6000);
+          say(L.signal?.success || [], 6000, 'signal-success');
         }
         break;
       }

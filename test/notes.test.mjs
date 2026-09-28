@@ -51,3 +51,18 @@ test('shouldSpeakNote：正常说 / 开关 / 安静时段 / 冷却 / 去重', ()
   );
   assert.equal(notes.shouldSpeakNote({ cfg: CFG, evt: { note: '' }, hour: 15 }).reason, 'no-note');
 });
+
+test('shouldSpeakNote：云端模式听模型的 speak 字段，本地只留 60 秒防刷屏', () => {
+  const speaking = { note: '在写代码呀', isWorking: true, speak: true };
+  const silent = { note: '在写代码呀', isWorking: true, speak: false };
+  assert.equal(notes.shouldSpeakNote({ cfg: CFG, evt: silent, hour: 15, cloud: true }).reason, 'llm-silent');
+  assert.equal(notes.shouldSpeakNote({ cfg: CFG, evt: speaking, hour: 15, cloud: true }).speak, true);
+  assert.equal(
+    notes.shouldSpeakNote({ cfg: CFG, evt: speaking, hour: 15, cloud: true, now: 30 * 1000, lastNoteAt: 1000 }).reason,
+    'cooldown'
+  );
+  assert.equal(
+    notes.shouldSpeakNote({ cfg: CFG, evt: speaking, hour: 23, cloud: true }).reason,
+    'quiet'
+  );
+});

@@ -7,6 +7,7 @@ const { computeStorageStats } = require('./context/stats');
 const { MODEL_PRESETS } = require('./config');
 const { capturePrimaryScreen } = require('./context/capture');
 const { buildEntityMemory } = require('./context/entities');
+const voice = require('./context/voice');
 
 function registerIpc(rt) {
   const { configStore, store, engine, dialogue, summaries, files, DATA_ROOT, APP_ROOT, broadcast } = rt;
@@ -133,6 +134,17 @@ function registerIpc(rt) {
     return res;
   });
   ipcMain.handle('model:test', () => chat.testModel(configStore.get()));
+
+  // 她说什么：正常情况由云端模型现写，未配置 Key / 断网时用内置台词库兜底
+  ipcMain.handle('voice:say', (_e, payload) =>
+    voice.composeLine({
+      kind: String((payload && payload.kind) || ''),
+      fallback: String((payload && payload.fallback) || ''),
+      cfg: configStore.get(),
+      store,
+      dialogue
+    })
+  );
 
   // 主动搭话自检：立即执行一次判断（trial 模式绕过时间类门控，仍需云端 Key）
   ipcMain.handle('proactive:run', () => rt.runProactive({ trial: true }));

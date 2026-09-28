@@ -141,7 +141,9 @@ function inQuietHours(hour, quiet = { start: 23, end: 6 }) {
 
 /**
  * 这条观察该不该在桌面上说出口（纯函数）。
- * 工作时段间隔 8 分钟、其余 3 分钟；与最近说过的任何一句太像都不说。
+ * - 云端（cloud=true）：**完全听模型的**——它标了 speak=true 才说，本地只留 60 秒防刷屏；
+ * - 离线（基础感知）：退回固定节奏——工作时段 8 分钟、其余 3 分钟一条。
+ * 两种模式都与最近说过的任何一句做过像判断。
  */
 function shouldSpeakNote({
   cfg,
@@ -150,8 +152,10 @@ function shouldSpeakNote({
   hour = new Date(now).getHours(),
   lastNoteAt = 0,
   recentPetLines = [],
+  cloud = false,
   workingGapMs = 8 * 60 * 1000,
-  idleGapMs = 3 * 60 * 1000
+  idleGapMs = 3 * 60 * 1000,
+  cloudGapMs = 60 * 1000
 } = {}) {
   const note = evt && evt.note ? String(evt.note).trim() : '';
   if (!note) return { speak: false, reason: 'no-note' };
@@ -159,7 +163,8 @@ function shouldSpeakNote({
   if (!cfg?.companion?.visible) return { speak: false, reason: 'hidden' };
   if (cfg?.companion?.speakNotes === false) return { speak: false, reason: 'notes-off' };
   if (inQuietHours(hour, cfg?.companion?.quietHours)) return { speak: false, reason: 'quiet' };
-  const gap = evt.isWorking ? workingGapMs : idleGapMs;
+  if (cloud && evt?.speak !== true) return { speak: false, reason: 'llm-silent' };
+  const gap = cloud ? cloudGapMs : evt.isWorking ? workingGapMs : idleGapMs;
   if (lastNoteAt && now - lastNoteAt < gap) return { speak: false, reason: 'cooldown' };
   if ((recentPetLines || []).some((t) => String(t).trim() === note || similarity(t, note) >= 0.6)) {
     return { speak: false, reason: 'duplicate' };

@@ -188,6 +188,25 @@
     }
   }
 
+  // ── 台词：正常情况由云端模型现写，连不上云再用本地台词库兜底 ──
+  function cloudReady() {
+    return !!(cfg && cfg.model && cfg.model.apiKey && cfg.model.model && cfg.model.baseUrl);
+  }
+
+  async function sayViaModel(kind, fallbackText, ms) {
+    if (!cloudReady()) {
+      if (fallbackText) showBubble(fallbackText, ms);
+      return;
+    }
+    try {
+      const r = await api.invoke('voice:say', { kind, fallback: fallbackText });
+      const text = (r && r.text) || fallbackText;
+      if (text) showBubble(text, ms);
+    } catch {
+      if (fallbackText) showBubble(fallbackText, ms);
+    }
+  }
+
   function pushDiary(text) {
     state.diary.push({ ts: Date.now(), text });
     if (state.diary.length > 80) state.diary = state.diary.slice(-80);
@@ -210,7 +229,8 @@
         refreshPose(state.phase !== 'react');
         break;
       case 'say':
-        showBubble(a.text, a.ms);
+        if (a.kind) sayViaModel(a.kind, a.text, a.ms);
+        else showBubble(a.text, a.ms);
         break;
       case 'fx':
         spawnFx(a.value);
@@ -710,7 +730,7 @@
       setTimeout(() => {
         const greet = linesLib.pick(linesLib.greetingFor(hour));
         const spawn = linesLib.pick(linesLib.Lines.spawn);
-        showBubble(greet || spawn, 5200);
+        sayViaModel('greeting', greet || spawn, 5200);
       }, 1200);
     }
     dispatch({ type: 'tick', hour, quiet: cfg.companion.quietHours, deltaMs: 0 });
