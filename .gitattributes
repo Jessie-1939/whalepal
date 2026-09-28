@@ -7,6 +7,8 @@
 *.gif binary
 *.ico binary
 *.woff2 binary
+# 启动器是 UTF-16LE 编码的 .vbs，禁止任何换行/编码转换
+*.vbs binary
 
 # 锁文件按文本合并
 package-lock.json text eol=lf
