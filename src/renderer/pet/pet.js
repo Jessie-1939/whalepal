@@ -766,6 +766,8 @@
     }, 30000);
 
     api.on('context:update', (evt) => {
+      // DSH 正在跑任务时以它为准（比截屏推断准得多），且 2 分钟内不让屏幕分析抢走姿势
+      if (dshBusy && Date.now() - dshAt < 2 * 60 * 1000) return;
       lastContext = evt;
       dispatch({
         type: 'context',
@@ -788,6 +790,66 @@
       }
       maybeSignalReact(evt);
     });
+    // ── DSH（DeepSeek Harness）桥接：agent 真实状态优先于截屏推断 ──
+    // 装了 dsh-whalepal-bridge 插件时，她直接知道：在思考 / 在跑哪个工具 / 报错 / 等你确认 / 回合结束。
+    let dshBusy = false;
+    let dshAt = 0;
+    function dshCategory(s) {
+      const t = String((s && s.tool) || '');
+      if (/bash|pwsh|shell|terminal|command|exec/i.test(t)) return 'terminal';
+      if (/web|fetch|http|search|browse/i.test(t)) return 'browsing';
+      if (/present|image|canvas|design/i.test(t)) return 'design';
+      if (/todo|plan|goal|workflow|jobs|task/i.test(t)) return 'writing';
+      if (/read/i.test(t)) return 'reading';
+      return 'coding';
+    }
+    function dshWorking(s) {
+      dshBusy = true;
+      dshAt = Date.now();
+      lastContext = {
+        activity: s.tool ? `DSH · ${s.tool}` : 'DSH · 思考中',
+        title: s.tool || '',
+        category: dshCategory(s),
+        detail: s.detail || '',
+        isWorking: true,
+        source: 'dsh'
+      };
+      dispatch({ type: 'context', isWorking: true, hour: new Date().getHours(), quiet: cfg.companion.quietHours });
+      lastWorkKey = poseMap.workGroup(lastContext).key;
+      lastWorkRotateIdx = Math.floor(Date.now() / WORK_ROTATE_MS);
+      currentPose = null;
+      refreshPose(true);
+      markInteraction();
+    }
+    api.on('dsh:state', (s) => {
+      if (!s || !s.state) return;
+      dshAt = Date.now();
+      switch (s.state) {
+        case 'tool':
+        case 'busy':
+          dshWorking(s);
+          break;
+        case 'error':
+          dshBusy = true;
+          maybeSignalReact({ signal: 'error' });
+          break;
+        case 'turn-end':
+          dshBusy = false;
+          maybeSignalReact({ signal: 'success' });
+          break;
+        case 'waiting-approval':
+          dshBusy = true;
+          showBubble('DSH 在等你确认一下～', 6000);
+          break;
+        case 'idle':
+        case 'session-start':
+        default:
+          dshBusy = false;
+          dispatch({ type: 'context', isWorking: false, hour: new Date().getHours(), quiet: cfg.companion.quietHours });
+          break;
+      }
+    });
+
     api.on('care:line', ({ tag }) => dispatch({ type: 'care', tag }));
     api.on('pet:bubble', ({ text, ms, kind }) => showBubble(text, ms || 8000, { record: false, kind }));
     api.on('config:changed', (c) => {

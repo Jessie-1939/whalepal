@@ -187,6 +187,8 @@
     $('#c-care').checked = cfg.companion.care;
     $('#c-proactive').checked = cfg.companion.proactive !== false;
     $('#c-speak-notes').checked = cfg.companion.speakNotes !== false;
+    $('#c-dsh').checked = !cfg.dsh || cfg.dsh.enabled !== false;
+    $('#c-dsh-port').value = (cfg.dsh && cfg.dsh.port) || 8787;
     $('#c-quiet-start').value = cfg.companion.quietHours.start;
     $('#c-quiet-end').value = cfg.companion.quietHours.end;
 
@@ -199,6 +201,12 @@
     $('#c-care').addEventListener('change', (e) => save({ companion: { care: e.target.checked } }));
     $('#c-proactive').addEventListener('change', (e) => save({ companion: { proactive: e.target.checked } }));
     $('#c-speak-notes').addEventListener('change', (e) => save({ companion: { speakNotes: e.target.checked } }));
+    $('#c-dsh').addEventListener('change', (e) => save({ dsh: { enabled: e.target.checked } }));
+    $('#c-dsh-port').addEventListener('change', (e) => {
+      const v = Math.min(65535, Math.max(1024, Number(e.target.value) || 8787));
+      e.target.value = v;
+      save({ dsh: { port: v } });
+    });
     const saveQuiet = () =>
       save({
         companion: {
@@ -455,6 +463,26 @@
         $('#d-memory').textContent = lines.length
           ? `${lines.join('\n')}\n（共 ${mem.eventCount} 条事件参与聚合）`
           : '还没有足够的记录，多陪她几天就有了。';
+      } catch {
+        // 忽略
+      }
+
+      // DSH 桥接状态：装在 DeepSeek Harness 里的桥接插件有没有在推状态
+      try {
+        const dsh = await api.invoke('dsh:status');
+        const box = $('#c-dsh-status');
+        if (!dsh || dsh.enabled === false) {
+          box.textContent = '已关闭（她只靠屏幕理解）';
+        } else if (dsh.lastError) {
+          box.textContent = `监听失败：${dsh.lastError}`;
+        } else if (dsh.lastState) {
+          const t = new Date(dsh.lastState.receivedAt).toLocaleTimeString();
+          const st = dsh.lastState;
+          const what = st.tool ? `${st.state} · ${st.tool}` : st.state;
+          box.textContent = `监听 127.0.0.1:${dsh.port} · 最近一次（${t}）：${what}`;
+        } else {
+          box.textContent = `监听 127.0.0.1:${dsh.port} · 还没收到状态（DSH 里装好桥接插件后就会来消息）`;
+        }
       } catch {
         // 忽略
       }

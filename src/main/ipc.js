@@ -18,6 +18,7 @@ function registerIpc(rt) {
   ipcMain.handle('config:set', (_e, patch) => {
     const cfg = configStore.update(patch || {});
     if (patch && patch.context) engine.reschedule();
+    if (patch && patch.dsh && rt.dsh) rt.dsh.restart();
     if (patch && patch.companion && patch.companion.visible !== undefined) {
       if (cfg.companion.visible) rt.showPet();
       else rt.hidePet();
@@ -134,6 +135,7 @@ function registerIpc(rt) {
     return res;
   });
   ipcMain.handle('model:test', () => chat.testModel(configStore.get()));
+  ipcMain.handle('dsh:status', () => (rt.dsh ? rt.dsh.status() : { enabled: false, listening: false }));
 
   // 她说什么：正常情况由云端模型现写，未配置 Key / 断网时用内置台词库兜底
   ipcMain.handle('voice:say', (_e, payload) =>

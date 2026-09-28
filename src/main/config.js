@@ -48,6 +48,11 @@ const DEFAULTS = {
   system: {
     autostart: false
   },
+  // DSH（DeepSeek Harness）桥接：只监听 127.0.0.1，接收 dsh-whalepal-bridge 插件推送的 agent 状态
+  dsh: {
+    enabled: true,
+    port: 8787
+  },
   window: { x: null, y: null }
 };
 

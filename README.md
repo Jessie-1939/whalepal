@@ -36,6 +36,19 @@ cloud vision for understanding, local-only data, zero telemetry.*
 - 🗓️ **回顾**：日历热力图（按专注时长五档强度）、单日时间线、按天摘要（过去日期生成一次后缓存）。
 - 🛡️ **隐私**：不配置模型 Key 时零联网；配置后只有你填写的端点能收到数据（截图只在「画面变化的理解」与「现在类提问」两个时刻发送）；唯一网络出口在代码层做了白名单校验。
 
+## 和 DeepSeek Harness（DSH）的关系
+
+仓库里的 [`packages/dsh-bridge`](packages/dsh-bridge) 是一个**真的 DSH 插件**（`dsh.bundle` + `cordis.patch.yml` + 宿主侧 `apply(ctx)`），
+装上之后 DSH 会把 agent 的真实状态（思考 / 在跑哪个工具 / 报错 / 回合结束 / 等你在界面上点确认）
+通过 **127.0.0.1** 推给桌面上的鲸伴——她就不用靠截屏猜了。DSH 没开时鲸伴照常用，两者互不依赖。
+
+```sh
+dsh plugin --profile web add dsh-whalepal-bridge
+# 或从本仓库直接装：dsh plugin --profile web add github:Jessie-1939/whalepal#path:/packages/dsh-bridge
+```
+
+插件只往回环地址发（非回环地址一律拒绝）、不读消息内容、无遥测；鲸伴侧在 设置 → 陪伴 → 「DSH 桥接」里可随时关闭。
+
 ## 截图
 
 | 陪伴设置 | 活动日历 |

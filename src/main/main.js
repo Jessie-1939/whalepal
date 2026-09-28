@@ -12,6 +12,7 @@ const { ContextEngine } = require('./context/engine');
 const { CareManager } = require('./context/care');
 const { shouldSpeakNote } = require('./context/notes');
 const { buildEntityMemory } = require('./context/entities');
+const { DshBridge } = require('./context/dshBridge');
 const { capturePrimaryScreen } = require('./context/capture');
 const { getActiveWindow, getUiText } = require('./context/activeWindow');
 const { registerAssetProtocol, scanPoses, createPetWindow, createSettingsWindow, defaultPetPosition } = require('./windows');
@@ -199,6 +200,16 @@ async function bootstrap() {
     }
   });
 
+  // DSH 桥接：装上 dsh-whalepal-bridge 插件后，桌宠直接拿到 agent 的真实状态
+  // （不再只靠截屏猜）；没装 / DSH 没开时这个回环端口安静闲置。
+  const dsh = new DshBridge({
+    config: configStore,
+    onState: (state) => {
+      rt.dshState = state;
+      broadcast('dsh:state', state);
+    }
+  });
+
   // 主动搭话：默认沉默；只有云端模型显式调用 send_message 工具才会发送。
   const runProactive = async ({ trial = false } = {}) => {
     const c = configStore.get();
@@ -276,8 +287,11 @@ async function bootstrap() {
       return writeJson(files().growth, payload);
     },
     runProactive,
-    proactiveStatus: null
+    proactiveStatus: null,
+    dsh,
+    dshState: null
   };
+  dsh.start();
 
   registerIpc(rt);
 

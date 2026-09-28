@@ -1,0 +1,48 @@
+{
+  "name": "dsh-whalepal-bridge",
+  "version": "0.1.0",
+  "description": "Bridge DeepSeek Harness agent state (status / tools / errors / approval) to the WhalePal desktop pet over loopback only. No cloud calls, no telemetry.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./state": "./lib/state.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "whalepal",
+    "desktop-pet",
+    "bridge",
+    "loopback"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jessie-1939/whalepal.git",
+    "directory": "packages/dsh-bridge"
+  },
+  "homepage": "https://github.com/Jessie-1939/whalepal",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

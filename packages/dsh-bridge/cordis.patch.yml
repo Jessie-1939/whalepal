@@ -1,0 +1,7 @@
+# WhalePal 桥接：把 DeepSeek Harness 的 agent 状态推给桌面上的鲸伴。
+# 只往 127.0.0.1 发，不联网、不遥测；鲸伴没开时静默失败（互不影响）。
+- insert:
+    - id: whalepal-bridge
+      name: dsh-whalepal-bridge
+      config:
+        endpoint: http://127.0.0.1:8787/dsh-state

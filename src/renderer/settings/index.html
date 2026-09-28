@@ -73,6 +73,14 @@
             <div class="row-main"><div class="row-title">把观察说出来</div><div class="row-sub">每次理解屏幕后，按内容说一句（工作中 8 分钟、其余 3 分钟一条，不刷屏）</div></div>
             <input id="c-speak-notes" type="checkbox" class="switch" />
           </label>
+          <label class="row">
+            <div class="row-main"><div class="row-title">DSH 桥接（本机回环）</div><div class="row-sub">装 DeepSeek Harness 的 dsh-whalepal-bridge 插件后，她直接知道 agent 状态（思考 / 工具 / 报错 / 等你确认）；只监听 127.0.0.1，不联网</div></div>
+            <input id="c-dsh" type="checkbox" class="switch" />
+          </label>
+          <div class="row">
+            <div class="row-main"><div class="row-title">桥接端口</div><div class="row-sub" id="c-dsh-status">未运行</div></div>
+            <div class="row-control"><input id="c-dsh-port" type="number" min="1024" max="65535" class="num" /></div>
+          </div>
           <div class="row">
             <div class="row-main"><div class="row-title">安静时段</div><div class="row-sub">时段内不主动闲聊；深夜仍在忙仅提醒一次</div></div>
             <div class="row-control">

@@ -1,0 +1,9 @@
+# 提交到 awesome-dsh-plugin 的条目（仓库创建满 1 天后提 PR 即可）
+# 目标文件：data/plugins/Jessie-1939__whalepal--packages-dsh-bridge.yml
+# 说明：monorepo 子包按官方 contributing.md：url 指向子目录，name 用 owner/repo#subname
+url: https://github.com/Jessie-1939/whalepal/tree/main/packages/dsh-bridge
+name: Jessie-1939/whalepal#dsh-bridge
+category: fun
+description:
+  en: Bridges DeepSeek Harness agent state (status, tool calls, errors, approval waits) to the WhalePal desktop pet over loopback, so the pet reacts to the real agent state instead of guessing from screenshots.
+  zh: 把 DeepSeek Harness 的 agent 状态（思考、工具调用、报错、等待确认）通过本机回环推给桌面上的鲸伴，让她跟着真实状态反应，而不是靠截屏猜。
