@@ -339,14 +339,65 @@
     }
   }
 
+  // ── 动画循环：按需运行（此前是常驻 60fps，桌宠闲着也一直烧 CPU / GPU）──
+  // 只有「甩出去的惯性滑行」和「开启走动且在散步」才需要逐帧；
+  // 其余时间用 1 秒一次的低频 tick（待机小动作、散步调度），主线程不再被 60fps 唤醒。
   let lastFrame = performance.now();
+  let rafId = 0;
+
+  function needsAnimation() {
+    if (glide) return true;
+    // 走动模式下也只有"正在移动"那几秒需要逐帧；停顿期间交给 1s 心跳
+    return !!(cfg && cfg.companion.walk && !dragging && state.phase === 'idle' && wander.mode === 'walk');
+  }
+
   function frame(now) {
     const dt = Math.min(100, now - lastFrame);
     lastFrame = now;
     tickWander(now, dt);
     tickGlide(now);
+    rafId = needsAnimation() ? requestAnimationFrame(frame) : 0;
+  }
+
+  function ensureAnimation() {
+    if (!rafId && needsAnimation()) {
+      lastFrame = performance.now();
+      rafId = requestAnimationFrame(frame);
+    }
+  }
+
+  function lowFreqTick() {
+    const now = performance.now();
     tickIdleActions(now);
-    requestAnimationFrame(frame);
+    tickBreath(now);
+    // 走动模式：停顿期间由低频 tick 决定何时开始下一段，真正移动时才交给 rAF
+    if (!rafId && cfg && cfg.companion.walk && !glide) {
+      tickWander(now, 1000);
+      ensureAnimation();
+    }
+  }
+
+  // 偶尔「呼吸」一下：不再常驻 60fps 动画（那是 CPU/GPU 空转的大头），
+  // 改为每 18–40 秒做一次 1.6s 的轻微起伏——看得见活着，又不烧机器。
+  const BREATH_MIN_MS = 18 * 1000;
+  const BREATH_MAX_MS = 40 * 1000;
+  let nextBreathAt = performance.now() + 6000 + Math.random() * 6000;
+  function tickBreath(now) {
+    if (now < nextBreathAt) return;
+    nextBreathAt = now + BREATH_MIN_MS + Math.random() * (BREATH_MAX_MS - BREATH_MIN_MS);
+    if (!cfg || dragging || glide || visualWalk || state.phase !== 'idle') return;
+    try {
+      pet.animate(
+        [
+          { transform: 'translateX(-50%) translateY(0)' },
+          { transform: 'translateX(-50%) translateY(-5px)' },
+          { transform: 'translateX(-50%) translateY(0)' }
+        ],
+        { duration: 1600, easing: 'ease-in-out' }
+      );
+    } catch {
+      // 动画不可用时忽略：桌宠保持静止
+    }
   }
 
   // 待机小动作调度：原地换图，播放几秒后回到基础待机（不移动窗口）
@@ -406,27 +457,45 @@
   }
 
   // ---------- 鼠标穿透 ----------
+  // 命中判定用几何矩形（visualBox / 菜单矩形）而不是 elementFromPoint：
+  // 后者每次 mousemove 都会触发布局计算，拖动鼠标时是实打实的卡顿来源。
+  function pointOverPet(x, y) {
+    if (menu.classList.contains('show')) {
+      const r = menu.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
+    }
+    const pad = 4;
+    return (
+      x >= visualBox.left - pad &&
+      x <= visualBox.right + pad &&
+      y >= visualBox.top - pad &&
+      y <= visualBox.bottom + pad
+    );
+  }
+
   function updateIgnore(x, y) {
     if (dragging || x < 0 || y < 0) return;
-    let over = false;
-    try {
-      const el = document.elementFromPoint(x, y);
-      over = !!(el && el.closest && el.closest('#pet, #menu'));
-    } catch {
-      over = false;
-    }
-    const ignore = !over;
+    const ignore = !pointOverPet(x, y);
     if (ignore !== ignoreMouse) {
       ignoreMouse = ignore;
       api.invoke('pet:set-ignore-mouse', ignore);
     }
   }
 
+  // mousemove 合并到每帧一次：高频移动时不再逐条事件做命中判定
+  let mouseRaf = 0;
+  let mousePending = null;
   window.addEventListener(
     'mousemove',
     (e) => {
       lastMouse = { x: e.clientX, y: e.clientY };
-      updateIgnore(e.clientX, e.clientY);
+      mousePending = lastMouse;
+      if (!mouseRaf) {
+        mouseRaf = requestAnimationFrame(() => {
+          mouseRaf = 0;
+          if (mousePending) updateIgnore(mousePending.x, mousePending.y);
+        });
+      }
     },
     { passive: true }
   );
@@ -501,7 +570,10 @@
         vx = ((b.x - a.x) / dt) * 16;
         vy = ((b.y - a.y) / dt) * 16;
       }
-      if (Math.hypot(vx, vy) > 0.25) glide = { vx, vy, last: performance.now() };
+      if (Math.hypot(vx, vy) > 0.25) {
+        glide = { vx, vy, last: performance.now() };
+        ensureAnimation(); // 只有在真的甩出去时才需要逐帧
+      }
       else snapAndSave();
       dispatch({
         type: 'drag-end',
@@ -629,7 +701,9 @@
     pos = { x: bounds.x, y: bounds.y };
     applyPose(state.pose);
     syncEdgeClass();
-    requestAnimationFrame(frame);
+    // 低频心跳（1s）：待机小动作与散步调度；真正需要逐帧时再挂 rAF
+    setInterval(lowFreqTick, 1000);
+    ensureAnimation();
 
     const hour = new Date().getHours();
     if (!isQuiet(hour)) {
