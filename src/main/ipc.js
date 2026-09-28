@@ -6,6 +6,7 @@ const calendar = require('./context/calendar');
 const { computeStorageStats } = require('./context/stats');
 const { MODEL_PRESETS } = require('./config');
 const { capturePrimaryScreen } = require('./context/capture');
+const { buildEntityMemory } = require('./context/entities');
 
 function registerIpc(rt) {
   const { configStore, store, engine, dialogue, summaries, files, DATA_ROOT, APP_ROOT, broadcast } = rt;
@@ -58,6 +59,8 @@ function registerIpc(rt) {
   ipcMain.handle('context:day-summary', (_e, dateKey) =>
     chat.summaryForDay(String(dateKey || ''), { store, cfg: configStore.get(), dialogue, summaries })
   );
+  // 跨天实体记忆（最近 N 天的项目/文件/主题聚合，供设置页与"我最近在做什么"类问答）
+  ipcMain.handle('context:entities', (_e, days) => buildEntityMemory(store, { days: Number(days) || 7 }));
   ipcMain.handle('pet:hide', () => {
     configStore.update({ companion: { visible: false } });
     rt.hidePet();

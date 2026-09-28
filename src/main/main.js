@@ -10,6 +10,8 @@ const { SummaryStore } = require('./context/summaries');
 const { evaluateProactiveGates, decideWithModel, generateTrialLine, TIMEOUT_LINE } = require('./context/proactive');
 const { ContextEngine } = require('./context/engine');
 const { CareManager } = require('./context/care');
+const { shouldSpeakNote } = require('./context/notes');
+const { buildEntityMemory } = require('./context/entities');
 const { capturePrimaryScreen } = require('./context/capture');
 const { getActiveWindow, getUiText } = require('./context/activeWindow');
 const { registerAssetProtocol, scanPoses, createPetWindow, createSettingsWindow, defaultPetPosition } = require('./windows');
@@ -151,6 +153,36 @@ async function bootstrap() {
     emit: ({ tag }) => broadcast('care:line', { tag })
   });
 
+  // 跨天实体记忆（纯本地聚合）：给主动搭话与手动试跑提供"最近一直在忙什么"
+  const memoryText = () => {
+    try {
+      return buildEntityMemory(store, { days: 7 }).text || '';
+    } catch {
+      return '';
+    }
+  };
+
+  // 把感知到的「观察」在桌面上说出来（此前只写进设置页，主人几乎看不到她开口）。
+  // 节流与去重由 notes.shouldSpeakNote 决定：工作中 8 分钟、其余 3 分钟一条，安静时段不说。
+  const maybeSpeakNote = (evt) => {
+    const c = configStore.get();
+    const lastNote = dialogue.lastOfKind('note');
+    const decision = shouldSpeakNote({
+      cfg: c,
+      evt,
+      now: Date.now(),
+      hour: new Date().getHours(),
+      lastNoteAt: lastNote ? lastNote.ts : 0,
+      recentPetLines: dialogue
+        .recent(20)
+        .filter((e) => e.role === 'pet')
+        .map((e) => e.text)
+    });
+    if (!decision.speak) return;
+    dialogue.append({ role: 'pet', kind: 'note', text: evt.note });
+    broadcast('pet:bubble', { text: evt.note, ms: 8000, kind: 'note' });
+  };
+
   const engine = new ContextEngine({
     config: configStore,
     store,
@@ -161,6 +193,7 @@ async function bootstrap() {
     onEvent: (evt) => {
       broadcast('context:update', evt);
       care.onEvent(evt);
+      maybeSpeakNote(evt);
     }
   });
 
@@ -188,7 +221,7 @@ async function bootstrap() {
     if (trial) {
       // 手动试跑：主人明确要求她说一句 → 直接生成（自主搭话仍走工具门控）
       try {
-        const text = await generateTrialLine({ cfg: c, store, dialogue });
+        const text = await generateTrialLine({ cfg: c, store, dialogue, memory: memoryText() });
         if (!text) throw new Error('empty');
         dialogue.append({ role: 'pet', kind: 'proactive', text });
         broadcast('pet:bubble', { text, ms: 8000, kind: 'proactive' });
@@ -205,7 +238,7 @@ async function bootstrap() {
       rt.proactiveStatus = { at: now, sent: true, reason: 'timeout-signal', text: TIMEOUT_LINE, trial: false };
       return { sent: true, mode: 'timeout' };
     }
-    const decision = await decideWithModel({ cfg: c, store, dialogue, trial });
+    const decision = await decideWithModel({ cfg: c, store, dialogue, trial, memory: memoryText() });
     if (decision.send) {
       dialogue.append({ role: 'pet', kind: 'proactive', text: decision.text });
       broadcast('pet:bubble', { text: decision.text, ms: 8000, kind: 'proactive' });

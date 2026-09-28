@@ -126,7 +126,9 @@ signal 判定：屏幕上出现明确的报错/失败/异常（红色错误提�
 detail 与 entities 请从截图和下方「窗口文本摘录」中提取真实出现过的名字（文件名、项目名、报错关键行），不要编造；提取不到就留空数组/空字符串。
 「窗口文本摘录」是操作系统无障碍树里的精确文本（不是 OCR），凡与屏幕上看到的一致就以它为准；topics 用来概括"这段时间在忙什么主题"，便于以后跨天回忆。
 隐私红线：绝不复述屏幕上的密码、密钥、金额、身份证号或聊天内容原文。
-note 字段请用「鲸鱼娘」的口吻（傲娇但甜、略微慵懒，偶尔带甩尾巴的小动作），不超过 30 字。`;
+note 字段请用「鲸鱼娘」的口吻（傲娇但甜、略微慵懒），不超过 30 字，写**具体的观察**（在做什么、卡在哪、节奏如何）。
+note 的意象要求：不要每条都写尾巴——「甩尾巴」这类小动作平均每 5 条最多出现 1 条，且不要连续两条用同一个意象；
+也绝不要与下方「最近已用过的观察」重复或换汤不换药（例如把同一句换个语气词）。`;
 
 function parseJsonLoose(text) {
   if (!text) return null;
@@ -162,11 +164,14 @@ function normalizeCloudResult(parsed, { title = '', process = '' } = {}) {
 }
 
 /** 调用云端视觉模型（OpenAI 兼容）。失败时抛出错误，由 analyze() 统一降级。 */
-async function cloudAnalyze({ jpegBase64, title = '', process = '', texts = [], cfg, timeoutMs = 45000 }) {
+async function cloudAnalyze({ jpegBase64, title = '', process = '', texts = [], recentNotes = [], cfg, timeoutMs = 45000 }) {
   const base = String(cfg.model.baseUrl || '').replace(/\/+$/, '');
   const textExcerpt = Array.isArray(texts) && texts.length
     ? `窗口文本摘录（来自无障碍树的精确文本，可作为 detail/entities 的依据）：${texts.slice(0, 30).join(' | ').slice(0, 700)}`
     : '窗口文本摘录：无（未能读取无障碍树，请完全依据截图判断）';
+  const recentLine = Array.isArray(recentNotes) && recentNotes.length
+    ? `最近已用过的观察（务必换意象/句式，不要重复）：${recentNotes.slice(-5).map((t) => String(t).slice(0, 40)).join(' | ')}`
+    : '最近已用过的观察：无';
   const body = {
     model: cfg.model.model,
     temperature: 0.2,
@@ -176,7 +181,7 @@ async function cloudAnalyze({ jpegBase64, title = '', process = '', texts = [], 
       {
         role: 'user',
         content: [
-          { type: 'text', text: `当前前台窗口：${title || '未知'}（进程：${process || '未知'}）。\n${textExcerpt}\n请理解这张屏幕截图并输出 JSON。` },
+          { type: 'text', text: `当前前台窗口：${title || '未知'}（进程：${process || '未知'}）。\n${textExcerpt}\n${recentLine}\n请理解这张屏幕截图并输出 JSON。` },
           { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${jpegBase64}` } }
         ]
       }
@@ -208,11 +213,11 @@ async function cloudAnalyze({ jpegBase64, title = '', process = '', texts = [], 
 }
 
 /** 统一入口：有 Key 走云端视觉模型；无 Key / 失败 → 基础感知（source 标注 cloud/basic）。 */
-async function analyze({ jpeg, title = '', process = '', texts = [], cfg }) {
+async function analyze({ jpeg, title = '', process = '', texts = [], recentNotes = [], cfg }) {
   const cloudReady = !!(cfg?.model?.apiKey && cfg?.model?.model && cfg?.model?.baseUrl);
   if (cloudReady) {
     try {
-      return await cloudAnalyze({ jpegBase64: jpeg.toString('base64'), title, process, texts, cfg });
+      return await cloudAnalyze({ jpegBase64: jpeg.toString('base64'), title, process, texts, recentNotes, cfg });
     } catch (err) {
       const fallback = basicAnalyze({ title, process, texts });
       fallback.cloudError = String(err?.message || err).slice(0, 200);

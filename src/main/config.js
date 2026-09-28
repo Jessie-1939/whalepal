@@ -24,6 +24,8 @@ const DEFAULTS = {
     bubbles: true,
     care: true,
     proactive: true,
+    // 把每次感知到的「观察」在桌面上说出来（有节流：工作中 8 分钟、其余 3 分钟一条）
+    speakNotes: true,
     idleActions: true,
     quietHours: { start: 23, end: 6 }
   },

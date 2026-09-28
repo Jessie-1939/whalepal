@@ -69,6 +69,10 @@
             <div class="row-main"><div class="row-title">主动搭话</div><div class="row-sub">由云端模型判断是否值得开口（默认沉默）</div></div>
             <input id="c-proactive" type="checkbox" class="switch" />
           </label>
+          <label class="row">
+            <div class="row-main"><div class="row-title">把观察说出来</div><div class="row-sub">每次理解屏幕后，按内容说一句（工作中 8 分钟、其余 3 分钟一条，不刷屏）</div></div>
+            <input id="c-speak-notes" type="checkbox" class="switch" />
+          </label>
           <div class="row">
             <div class="row-main"><div class="row-title">安静时段</div><div class="row-sub">时段内不主动闲聊；深夜仍在忙仅提醒一次</div></div>
             <div class="row-control">
@@ -225,6 +229,11 @@
         <p class="group-label">记忆体积（文本 vs 图片）</p>
         <div class="panel">
           <div id="d-storage" class="stats"></div>
+        </div>
+
+        <p class="group-label">她记得的事（最近 7 天 · 本地聚合）</p>
+        <div class="panel">
+          <div id="d-memory" class="now">还没有足够的记录，多陪她几天就有了。</div>
         </div>
 
         <p class="group-label">管理</p>

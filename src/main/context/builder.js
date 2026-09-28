@@ -2,12 +2,15 @@
  * 上下文装配器（分层设计，对齐 OpenViking 的 L0/L1/L2 思路）：
  *   L0 · 对话与概览：最近对话 + 今日 headline
  *   L1 · 每日摘要：今天 / 昨天 / 本周摘要缓存（data/summaries.jsonl）
+ *   L1.5 · 实体记忆：最近 7 天的项目/文件/主题聚合（跨天"你最近一直在做什么"）
  *   L2 · 事件明细：今日或指定日期的结构化事件（时间/活动/应用/是否工作/驻留时长）
  *
  * 「图片 vs 文本」的投放规则（本文件是唯一裁决处）：
  *   - 只有需要“看”的问题（现在/此刻/屏幕…）才附一张实时截图；
  *   - 其余问答、摘要、主动搭话全部走文本层（便宜、可检索、少传像素）。
  */
+
+const { buildEntityMemory } = require('./entities');
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -66,6 +69,14 @@ function buildQuestionContext({ question, store, dialogue, summaries, now = new 
   }
   blocks.push(`【L1 · 每日摘要】${summaryLines.length ? summaryLines.join('\n') : '（暂无缓存摘要）'}`);
 
+  // L1.5 · 实体记忆（跨天；纯本地聚合，不额外调用模型）
+  let memory = null;
+  if (store && typeof store.readRange === 'function') {
+    memory = buildEntityMemory(store, { days: 7, now });
+  }
+  const memoryText = memory && memory.lines.length ? memory.lines.join('\n') : '（暂无跨天积累）';
+  blocks.push(`【L1.5 · 实体记忆（最近 7 天，本地聚合）】\n${memoryText}`);
+
   // L0 · 对话与概览
   const dlg = dialogue
     ? dialogue
@@ -80,7 +91,11 @@ function buildQuestionContext({ question, store, dialogue, summaries, now = new 
     intents,
     text: blocks.join('\n'),
     attachFreshImage: intents.wantsNow,
-    stats: { eventCount: events.length, summaryCount: summaryLines.length }
+    stats: {
+      eventCount: events.length,
+      summaryCount: summaryLines.length,
+      memoryProjects: memory ? memory.projects.length : 0
+    }
   };
 }
 

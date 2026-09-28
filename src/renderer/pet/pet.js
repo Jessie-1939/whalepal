@@ -535,6 +535,9 @@
         dispatch({ type: 'poke' });
         noteUserAction('戳了小鲸一下');
         break;
+      case 'speak':
+        speakNow();
+        break;
       case 'summary':
         askSummary();
         break;
@@ -570,6 +573,22 @@
       showBubble(String(r.text || '').replace(/\n+/g, ' ').slice(0, 150), 12000);
     } catch {
       showBubble('记录整理失败了，稍后再试试。', 4000);
+    }
+  }
+
+  // 手动让她说一句：走主动搭话的手动试跑（真实内容由主进程广播 pet:bubble 显示）
+  async function speakNow() {
+    showBubble('唔……让我想想说什么。', 2200);
+    try {
+      const r = await api.invoke('proactive:run');
+      if (!r || !r.sent) {
+        showBubble(
+          r && r.reason === 'no-cloud-key' ? '还没配置云端模型的钥匙，我暂时想不到新话题。' : '……现在没什么好说的，先陪你待着。',
+          4000
+        );
+      }
+    } catch {
+      showBubble('说话失败啦，稍后再试试。', 4000);
     }
   }
 

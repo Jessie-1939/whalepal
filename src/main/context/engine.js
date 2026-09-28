@@ -3,6 +3,7 @@ const { clamp } = require('../config');
 const { dHashFromBitmap, findSimilarHash } = require('./dhash');
 const { analyze } = require('./analyzer');
 const { localDateKey } = require('./store');
+const { ensureFreshNote } = require('./notes');
 
 // 画面相似判定：与「最近多张」指纹比对（借鉴 MineContext 的窗口去重思路，阈值取其 2 与常见 6 之间）
 const SIMILARITY_THRESHOLD = 4;
@@ -118,7 +119,13 @@ class ContextEngine {
         texts = [];
       }
     }
-    const result = await analyze({ jpeg, title: aw.title, process: aw.process, texts, cfg });
+    // 最近几句观察：既提供给云端模型"别重复"，也用于本地兜底换一句新鲜的
+    const recentNotes = this.store
+      .readRecent(6)
+      .map((e) => e.note)
+      .filter(Boolean);
+    const result = await analyze({ jpeg, title: aw.title, process: aw.process, texts, recentNotes, cfg });
+    result.note = ensureFreshNote(result.note, recentNotes, { category: result.category });
     const cloudReady = !!(cfg.model.apiKey && cfg.model.model && cfg.model.baseUrl);
     if (cloudReady) {
       this.usage.calls += 1;

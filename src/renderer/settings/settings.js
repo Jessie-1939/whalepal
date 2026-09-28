@@ -186,6 +186,7 @@
     $('#c-idle-actions').checked = cfg.companion.idleActions !== false;
     $('#c-care').checked = cfg.companion.care;
     $('#c-proactive').checked = cfg.companion.proactive !== false;
+    $('#c-speak-notes').checked = cfg.companion.speakNotes !== false;
     $('#c-quiet-start').value = cfg.companion.quietHours.start;
     $('#c-quiet-end').value = cfg.companion.quietHours.end;
 
@@ -197,6 +198,7 @@
     $('#c-idle-actions').addEventListener('change', (e) => save({ companion: { idleActions: e.target.checked } }));
     $('#c-care').addEventListener('change', (e) => save({ companion: { care: e.target.checked } }));
     $('#c-proactive').addEventListener('change', (e) => save({ companion: { proactive: e.target.checked } }));
+    $('#c-speak-notes').addEventListener('change', (e) => save({ companion: { speakNotes: e.target.checked } }));
     const saveQuiet = () =>
       save({
         companion: {
@@ -438,6 +440,23 @@
         $('#chat-proactive-status').textContent = ps.sent
           ? `最近一次（${time}）：她说「${ps.text}」`
           : `最近一次（${time}）：保持沉默（${reasonText(ps.reason)}）`;
+      }
+
+      // 跨天实体记忆：她回答「最近一直在做什么」时用的就是这块
+      try {
+        const mem = await api.invoke('context:entities', 7);
+        const lines = [];
+        if (mem.projects && mem.projects.length) {
+          lines.push(`项目/文档：${mem.projects.slice(0, 5).map((p) => `${p.name}（${p.days} 天 · ${p.count} 次）`).join('、')}`);
+        }
+        if (mem.topics && mem.topics.length) lines.push(`主题：${mem.topics.slice(0, 6).map((t) => t.name).join('、')}`);
+        if (mem.files && mem.files.length) lines.push(`文件/页面：${mem.files.slice(0, 5).map((f) => f.name).join('、')}`);
+        if (mem.keywords && mem.keywords.length) lines.push(`关键词：${mem.keywords.slice(0, 8).map((k) => k.name).join('、')}`);
+        $('#d-memory').textContent = lines.length
+          ? `${lines.join('\n')}\n（共 ${mem.eventCount} 条事件参与聚合）`
+          : '还没有足够的记录，多陪她几天就有了。';
+      } catch {
+        // 忽略
       }
 
       const recent = await api.invoke('context:recent', 12);

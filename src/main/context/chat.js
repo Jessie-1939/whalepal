@@ -196,9 +196,11 @@ async function cloudAnswer(question, cfg, built, imageJpeg) {
       role: 'system',
       content: `${personaSystemPrompt({ userName: cfg.companion.name, selfName: cfg.companion.selfName })}
 
-【任务】根据主人提供的分层上下文（L0 对话 / L1 摘要 / L2 事件明细，可能附带实时截图）回答问题。
+【任务】根据主人提供的分层上下文（L0 对话 / L1 摘要 / L1.5 实体记忆 / L2 事件明细，可能附带实时截图）回答问题。
 回答不超过 120 字；不要编造记录里没有的事；记录不足时直说并给一个小建议；
-不要重复你最近刚刚说过的话；如果之前问过的问题主人没有回应，不要再追问。`
+不要重复你最近刚刚说过的话；如果之前问过的问题主人没有回应，不要再追问；
+问「最近/这几天/一直在做什么」时优先用 L1.5 实体记忆回答；
+尾巴类小动作平均每 5 次回复最多出现 1 次，不要每次都说尾巴。`
     },
     { role: 'user', content: userContent }
   ];

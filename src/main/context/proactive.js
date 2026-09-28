@@ -5,17 +5,13 @@
  */
 const { personaSystemPrompt } = require('./persona');
 const { chatCompletion, cloudChat } = require('./chat');
+const { inQuietHours } = require('./notes');
 
 const MIN_GAP_MS = 12 * 60 * 1000; // 两次主动消息最小间隔
 const TIMEOUT_MS = 4 * 60 * 1000; // 主动消息多久没回应算「未回应」
 const NO_ACTIVITY_MS = 30 * 60 * 1000; // 主人半小时没有活动就不再判断
 
 const TIMEOUT_LINE = '……主人？（尾巴轻轻拍了下桌面）在忙的话，就当我没说。';
-
-function inQuietHours(hour, quiet = { start: 23, end: 6 }) {
-  const { start, end } = quiet;
-  return start <= end ? hour >= start && hour < end : hour >= start || hour < end;
-}
 
 /**
  * 纯函数门控。
@@ -85,7 +81,7 @@ function slimEvents(events) {
   return events.map((e) => ({ time: e.time, activity: e.activity, category: e.category, app: e.app, working: !!e.isWorking }));
 }
 
-function buildPromptMessages({ cfg, store, dialogue, now, trial = false }) {
+function buildPromptMessages({ cfg, store, dialogue, now, trial = false, memory = '' }) {
   const recentEvents = slimEvents(store.readRecent(8));
   const lastEvent = store.readRecent(1)[0] || null;
   const lines = dialogue
@@ -102,11 +98,13 @@ ${trial ? '【本次为主人手动触发】请直接调用 send_message 送出�
 1) 主人正在专注工作时保持沉默；
 2) 没有新的变化、没有值得关心的内容时保持沉默；
 3) 不要重复最近说过的话；之前问过而主人没回应的问题，不要再问；
-4) 如果决定发送，必须调用 send_message 工具；否则调用 stay_silent。`;
+4) 意象克制：「尾巴」类小动作平均每 5 条最多出现 1 次，不要连续两条用同一个梗；
+5) 如果决定发送，必须调用 send_message 工具；否则调用 stay_silent。`;
   const user = [
     `现在时间：${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
     `当前状态：${lastEvent ? `${lastEvent.activity}（${lastEvent.category}，${lastEvent.isWorking ? '工作中' : '空闲'}）` : '未知'}`,
     `最近事件：${JSON.stringify(recentEvents)}`,
+    ...(memory ? [`最近在忙（跨天实体记忆，可自然引用）：${memory}`] : []),
     `最近对话（倒序看最近）：\n${lines.join('\n') || '（还没有对话记录）'}`
   ].join('\n');
   return [
@@ -116,13 +114,13 @@ ${trial ? '【本次为主人手动触发】请直接调用 send_message 送出�
 }
 
 /** 云端判定：返回 {send, text?, reason}。任何异常都视为保持沉默。 */
-async function decideWithModel({ cfg, store, dialogue, now = new Date(), trial = false }) {
+async function decideWithModel({ cfg, store, dialogue, now = new Date(), trial = false, memory = '' }) {
   try {
     const data = await chatCompletion(
       {
         model: cfg.model.model,
         temperature: 0.6,
-        messages: buildPromptMessages({ cfg, store, dialogue, now, trial }),
+        messages: buildPromptMessages({ cfg, store, dialogue, now, trial, memory }),
         tools: PROACTIVE_TOOLS,
         tool_choice: 'auto'
       },
@@ -154,7 +152,7 @@ async function decideWithModel({ cfg, store, dialogue, now = new Date(), trial =
  * 主人明确要求她说话时，直接生成一句贴合当下情境的话——
  * 而不是再走一遍"要不要开口"的工具门控（那是给自主搭话用的）。
  */
-async function generateTrialLine({ cfg, store, dialogue, now = new Date() }) {
+async function generateTrialLine({ cfg, store, dialogue, now = new Date(), memory = '' }) {
   const recentEvents = slimEvents(store.readRecent(8));
   const lines = dialogue
     .recent(8)
@@ -166,12 +164,12 @@ async function generateTrialLine({ cfg, store, dialogue, now = new Date() }) {
       content: `${personaSystemPrompt({ userName: cfg.companion.name, selfName: cfg.companion.selfName })}
 
 【任务】主人手动点击了「让她现在说一句」。请直接输出一句主动关心或观察：
-≤40 字、简体中文、贴合下面给出的最近情境、不要与最近说过的话重复；
+≤40 字、简体中文、贴合下面给出的最近情境、不要与最近说过的话重复（尾巴类小动作平均每 5 句最多 1 次）；
 只输出这句话本身，不要引号、不要解释、不要任何前后缀。`
     },
     {
       role: 'user',
-      content: `最近事件：${JSON.stringify(recentEvents)}\n最近对话：\n${lines.join('\n') || '（暂无）'}\n现在时间：${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      content: `最近事件：${JSON.stringify(recentEvents)}${memory ? `\n最近在忙：${memory}` : ''}\n最近对话：\n${lines.join('\n') || '（暂无）'}\n现在时间：${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
     }
   ];
   const text = await cloudChat(messages, cfg, { temperature: 0.8, timeoutMs: 20000 });
