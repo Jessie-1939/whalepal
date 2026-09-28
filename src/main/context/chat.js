@@ -181,6 +181,35 @@ function recordsAnswer(question, store) {
   return `${head}\n${recordsSummary(store)}`;
 }
 
+/**
+ * 把一段回答切成适合桌宠气泡的短句（气泡最大 252px 宽，塞不下长回答）。
+ * 优先在句末标点断开；最多 maxChunks 段，被截断时最后一段以省略号收尾。
+ */
+function bubbleChunks(answer, { max = 80, maxChunks = 3 } = {}) {
+  const text = String(answer || '').replace(/\s+/g, ' ').trim();
+  if (!text) return [];
+  if (text.length <= max) return [text];
+  const parts = [];
+  let rest = text;
+  while (rest && parts.length < maxChunks) {
+    if (rest.length <= max) {
+      parts.push(rest);
+      rest = '';
+      break;
+    }
+    let cut = -1;
+    for (const p of ['。', '！', '？', '；', '，', '. ', '! ', '? ', '; ', ', ']) {
+      const idx = rest.lastIndexOf(p, max);
+      if (idx + p.length > cut) cut = idx + p.length;
+    }
+    if (cut <= 0) cut = max;
+    parts.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest) parts[parts.length - 1] = parts[parts.length - 1].replace(/[。！？；，、]$/, '') + '…';
+  return parts.filter(Boolean);
+}
+
 async function cloudAnswer(question, cfg, built, imageJpeg) {
   const userContent = imageJpeg
     ? [
@@ -284,6 +313,7 @@ module.exports = {
   recordsSummary,
   recordsDaySummary,
   recordsAnswer,
+  bubbleChunks,
   cloudChat,
   dialogueLines
 };

@@ -132,6 +132,9 @@ function registerIpc(rt) {
     });
     dialogue.append({ role: 'user', kind: 'chat', text: String(question || '') });
     dialogue.append({ role: 'pet', kind: 'chat-reply', text: res.answer });
+    // 桌面上也要说出来：长回答切成几段气泡（对话内容已进对话记忆，这里不重复记录）
+    const chunks = chat.bubbleChunks(res.answer);
+    if (chunks.length) broadcast('pet:bubble', { chunks, kind: 'chat-reply' });
     return res;
   });
   ipcMain.handle('model:test', () => chat.testModel(configStore.get()));

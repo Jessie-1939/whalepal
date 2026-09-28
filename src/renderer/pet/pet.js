@@ -851,7 +851,23 @@
     });
 
     api.on('care:line', ({ tag }) => dispatch({ type: 'care', tag }));
-    api.on('pet:bubble', ({ text, ms, kind }) => showBubble(text, ms || 8000, { record: false, kind }));
+    api.on('pet:bubble', ({ text, ms, kind, chunks }) => {
+      // 长回答：切成几段依次说，像她真的在讲话，而不是一次糊一大段
+      if (Array.isArray(chunks) && chunks.length) {
+        let i = 0;
+        const play = () => {
+          if (i >= chunks.length) return;
+          const c = String(chunks[i++] || '');
+          if (!c) return play();
+          const stay = Math.max(3200, Math.min(9000, c.length * 150));
+          showBubble(c, stay, { record: false, kind });
+          setTimeout(play, stay + 320);
+        };
+        play();
+        return;
+      }
+      showBubble(text, ms || 8000, { record: false, kind });
+    });
     api.on('config:changed', (c) => {
       cfg = c;
     });

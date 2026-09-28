@@ -60,8 +60,9 @@ class DshBridge {
   _cfg() {
     const c = this.config.get();
     const dsh = (c && c.dsh) || {};
-    // 0 = 随机端口（仅测试用）；设置页里限制在 1024-65535
-    const port = Math.min(65535, Math.max(0, Number(dsh.port) || 8787));
+    // 0 = 让系统分配随机端口（仅测试用）；未配置/非法 → 8787；其余夹在 1024-65535（设置页同范围）
+    const raw = Number(dsh.port);
+    const port = raw === 0 ? 0 : Number.isFinite(raw) && raw > 0 ? Math.min(65535, Math.max(1024, raw)) : 8787;
     return { enabled: dsh.enabled !== false, port };
   }
 

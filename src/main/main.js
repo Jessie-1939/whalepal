@@ -334,6 +334,32 @@ async function bootstrap() {
     }, 2500);
   }
 
+  // 对话自检：WHALEPAL_DEBUG_ASK="问题" 时问一次，打印回答与桌宠气泡分段后退出
+  if (process.env.WHALEPAL_DEBUG_ASK) {
+    setTimeout(async () => {
+      try {
+        const chatMod = require('./context/chat');
+        const res = await chatMod.ask(String(process.env.WHALEPAL_DEBUG_ASK), {
+          store,
+          cfg: configStore.get(),
+          dialogue,
+          summaries,
+          captureNow: async () => {
+            const shot = await capturePrimaryScreen({ width: 1280, height: 720 });
+            return shot ? shot.image.toJPEG(72) : null;
+          }
+        });
+        console.log(
+          'ASK_RESULT ' +
+            JSON.stringify({ source: res.source, chunks: chatMod.bubbleChunks(res.answer), answer: res.answer })
+        );
+      } catch (err) {
+        console.log('ASK_ERROR ' + String(err?.message || err).slice(0, 300));
+      }
+      app.quit();
+    }, 2500);
+  }
+
   // 窗口自检：WHALEPAL_DEBUG_CAPTURE=1 时打印坐标并抓取桌宠窗口内容后退出
   if (process.env.WHALEPAL_DEBUG_CAPTURE === '1') {
     setTimeout(() => {
