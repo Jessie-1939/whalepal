@@ -77,10 +77,13 @@ dsh plugin --profile web add dsh-whalepal-bridge
 git clone https://github.com/Jessie-1939/whalepal.git
 cd whalepal
 npm install
-npm start
+npm start          # 或者：装完依赖后直接双击 启动鲸伴.vbs（无命令行窗口）
 ```
 
 **开箱即用**：立绘素材（60+ 张）随仓库提交，无需额外下载；不填 API Key 也能完整运行（基础感知 / 关怀 / 日历 / 模板问答），填了 Key 才启用云端理解。
+
+需要 **Node.js 20+**（建议 22 LTS）。想验证依赖装好了没：`npm test`（应输出 80+ 个用例全过）。
+Windows 想要桌面图标和开机自启：`powershell -ExecutionPolicy Bypass -File scripts/create-desktop-shortcut.ps1`。
 
 <details>
 <summary><b>常见问题</b>（都是实际踩过的坑）</summary>

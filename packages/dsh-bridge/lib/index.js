@@ -32,6 +32,7 @@ export function apply(ctx, config = {}) {
   const shouldSend = createThrottle();
   let lastLogAt = 0;
   let sent = 0;
+  let warnedMissing = false;
 
   function send(payload) {
     if (!isValidState(payload.state)) return;
@@ -43,11 +44,20 @@ export function apply(ctx, config = {}) {
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(TIMEOUT_MS)
     }).catch((error) => {
-      // 鲸伴没开是常态：每 5 分钟最多提示一次，且只写 debug 日志
       const now = Date.now();
+      // 第一次连不上就把话说清楚：本插件只负责送状态，桌面版得先跑起来
+      if (!warnedMissing) {
+        warnedMissing = true;
+        lastLogAt = now;
+        ctx.logger.warn?.(
+          'whalepal-bridge: 连不上鲸伴桌面版（' + endpoint + '）——本插件只把 agent 状态送给它，先装并启动桌面版：https://github.com/Jessie-1939/whalepal'
+        );
+        return;
+      }
+      // 之后每 5 分钟最多一条 debug 日志，不刷屏
       if (now - lastLogAt > LOG_INTERVAL_MS) {
         lastLogAt = now;
-        ctx.logger.debug?.(`whalepal-bridge: 鲸伴未响应（${String(error?.name || error)}）—— 已发送 ${sent} 次，继续静默重试`);
+        ctx.logger.debug?.(`whalepal-bridge: 鲸伴仍未响应（${String(error?.name || error)}）—— 已发送 ${sent} 次，继续静默重试`);
       }
     });
   }
