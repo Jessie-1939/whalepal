@@ -49,6 +49,18 @@ dsh plugin --profile web add dsh-whalepal-bridge
 
 插件只往回环地址发（非回环地址一律拒绝）、不读消息内容、无遥测；鲸伴侧在 设置 → 陪伴 → 「DSH 桥接」里可随时关闭。
 
+### 让 AI 帮你装（把下面这段直接丢给你的 agent）
+
+> 把 https://github.com/Jessie-1939/whalepal 里的 **`packages/dsh-bridge` 子包**装成 DSH 插件：
+> 1. 找到 DSH profile 目录（默认 `~/.dsh/profiles/web`）；
+> 2. 在该目录执行 `pnpm add "github:Jessie-1939/whalepal#path:/packages/dsh-bridge"`；
+> 3. 确认该目录 `package.json` 的 `dsh.profile.bundles` 里出现 `dsh-whalepal-bridge`
+>    （没有的话再跑一次 `dsh plugin --profile web ls` 触发对账）；
+> 4. 用 `dsh --profile web --dump-config` 确认配置树里有 `whalepal-bridge`，然后重启 `dsh web`。
+>
+> ⚠️ 注意：这是一个 monorepo，**要装的是 `packages/dsh-bridge` 子包，不是仓库根目录的 Electron 应用**；
+> Windows 下不要用官方 `dsh plugin add` 直接传带空格的本地路径（CLI 转发给 pnpm 时会被拆成两个包），用上面的 git 规格最稳。
+
 ## 截图
 
 | 陪伴设置 | 活动日历 |
