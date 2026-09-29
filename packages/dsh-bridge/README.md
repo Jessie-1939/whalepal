@@ -1,6 +1,7 @@
 # dsh-whalepal-bridge
 
-Pushes **DeepSeek Harness (DSH)** agent state to the [WhalePal](https://github.com/Jessie-1939/whalepal) desktop pet.
+Pushes **DeepSeek Harness (DSH)** agent state to [WhalePal](https://github.com/Jessie-1939/whalepal), a standalone desktop pet app.
+WhalePal is its own Electron desktop-pet application (installed separately); this plugin only feeds it the agent state.
 With this plugin the pet no longer has to guess from screenshots: she knows when the agent is thinking,
 which tool it is running, when something failed, and when it is waiting for your approval.
 WhalePal works fine when DSH is closed — the two are independent.

@@ -1,6 +1,7 @@
 # dsh-whalepal-bridge
 
-把 **DeepSeek Harness (DSH)** 的 agent 状态推给桌面上的鲸伴（[WhalePal](https://github.com/Jessie-1939/whalepal)）。
+把 **DeepSeek Harness (DSH)** 的 agent 状态推给桌面宠物应用「鲸伴 WhalePal」（[WhalePal](https://github.com/Jessie-1939/whalepal)）。
+鲸伴是一个独立的桌面宠物（Electron 应用，单独安装）；本插件只负责把 agent 状态送给它。
 装了这个插件，鲸伴不必再靠截屏猜——她直接知道 agent 在思考、在跑哪个工具、报错了、还是正在等你确认。
 DSH 没开的时候鲸伴照常用，两者互不依赖。
 
