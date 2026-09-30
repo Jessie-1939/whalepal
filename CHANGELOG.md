@@ -2,6 +2,28 @@
 
 本项目的重要变更记录。更细粒度的设计约定变更见 [docs/09-实现约定变更.md](docs/09-实现约定变更.md)。
 
+## 未发布
+
+### 新增
+
+- **DeepSeek 供应商预设**：`deepseek-flash`（= DeepSeek-V4.1-Flash，原生支持图片输入、1M 上下文），
+  Base URL `https://api.deepseek.com`。预设显式关闭思考模式——同一张真实截图实测
+  **1.7s / 约 1.4k token**（默认思考模式 5.6s / 约 2.2k token，其中 727 是推理 token）。
+  设置页「服务预设」一键切换；DeepSeek 的 API Key 与百炼/豆包各自独立，切换不互相覆盖。
+- **token 用量记账**：每次云端调用的响应 `usage` 按「来源 × 日期」记入 `data/usage.json`
+  （analyze / ask / summary / proactive / voice / test 六个来源），设置页展示累计输入 / 输出 / 缓存命中 token。
+  只存数字，不含屏幕内容或对话原文。旧版 usage.json 的纯计数作为 legacy 基数保留。
+- **系统信任库适配**：装了 Kaspersky 等会重签 HTTPS 证书的软件时，Node/Electron 会报
+  `self signed certificate in certificate chain` 导致云端调用全挂。`启动鲸伴.vbs` 现在会用
+  `--use-system-ca` 让 Electron 直接采用 Windows 信任库，并支持把系统根证书导出到
+  `data/tls/windows-roots.pem` 兜底（`npm run start:ca` / `scripts/export-system-ca.ps1`）。
+
+### 修复
+
+- `addRecord` 只认归一化字段，直传 API 原始 `prompt_tokens` 时会静默记 0 → 两种写法都接受。
+- 文本类云端调用（问答 / 摘要 / 搭话 / 台词）分别落在两个收集器里，引擎只 drain 自己的 →
+  改为同时 drain 两个，避免这部分 token 永远不落盘。
+
 ## 0.1.0 — 2026-09-27 → 09-28
 
 ### 新增

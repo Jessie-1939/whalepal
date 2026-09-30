@@ -4,6 +4,8 @@ const { dHashFromBitmap, findSimilarHash } = require('./dhash');
 const { analyze } = require('./analyzer');
 const { localDateKey } = require('./store');
 const { ensureFreshNote } = require('./notes');
+const { createUsageCollector, mergeUsage } = require('./usage');
+const { usageCollector: chatUsage } = require('./chat');
 
 // 画面相似判定：与「最近多张」指纹比对（借鉴 MineContext 的窗口去重思路，阈值取其 2 与常见 6 之间）
 const SIMILARITY_THRESHOLD = 4;
@@ -29,13 +31,19 @@ class ContextEngine {
     this.lastEvent = null;
     this.busySince = 0;
     this.usage = this._loadUsage();
+    // 0.1.0 的 usage.json 只有累计次数、没有 byDay：把旧值当基数保留，新账从今天起按天记。
+    this.legacyCalls = this.usage.byDay ? 0 : Number(this.usage.calls || 0);
+    this.legacyFailures = this.usage.byDay ? 0 : Number(this.usage.failures || 0);
+    // 进程内用量收集器：analyzer / chat 系（问答、摘要、搭话、台词）都往这里记，
+    // 每轮 tick 结束时统一 drain 落盘，避免多处写同一个文件。
+    this.usageCollector = createUsageCollector();
   }
 
   _loadUsage() {
     try {
       return JSON.parse(fs.readFileSync(this.files.usage, 'utf8'));
     } catch {
-      return { calls: 0, failures: 0, lastAt: 0, lastSource: '' };
+      return { calls: 0, failures: 0, lastAt: 0, lastSource: '', byDay: {}, bySource: {} };
     }
   }
 
@@ -45,6 +53,24 @@ class ContextEngine {
     } catch {
       // 忽略写失败
     }
+  }
+
+  /** 把收集器里的调用记录并入 usage.json（token 计数按日期与来源分组）。 */
+  flushUsage() {
+    // 两个来源：本引擎的视觉分析收集器 + chat.js 的文本调用收集器（问答/摘要/搭话/台词/测试连接）
+    const records = [...this.usageCollector.drain(), ...chatUsage.drain()];
+    if (!records.length) return this.usage;
+    const stamp = localDateKey();
+    for (const r of records) if (!r.dateKey) r.dateKey = stamp;
+    this.usage = mergeUsage(this.usage, records, { dateKey: stamp });
+    // 顶层计数器与 byDay 汇总保持一致（0.1.0 的旧值作为 legacy 基数保留）
+    const totals = this.usage.totals || {};
+    this.usage.calls = Number(this.legacyCalls || 0) + Number(totals.calls || 0);
+    this.usage.failures = Number(this.legacyFailures || 0) + Number(totals.failures || 0);
+    this.usage.lastAt = Date.now();
+    this.usage.lastSource = records[records.length - 1].source;
+    this._saveUsage();
+    return this.usage;
   }
 
   start() {
@@ -82,6 +108,8 @@ class ContextEngine {
   }
 
   async captureOnce(force = false) {
+    // 上一轮之间产生的文本调用（问答/搭话/台词）先落盘，避免要等到下一次画面变化才记账
+    this.flushUsage();
     const cfg = this.config.get();
     if (!force && !cfg.context.enabled) return { changed: false, skipped: 'disabled' };
 
@@ -124,19 +152,21 @@ class ContextEngine {
       .readRecent(6)
       .map((e) => e.note)
       .filter(Boolean);
-    const result = await analyze({ jpeg, title: aw.title, process: aw.process, texts, recentNotes, cfg });
+    const result = await analyze({
+      jpeg,
+      title: aw.title,
+      process: aw.process,
+      texts,
+      recentNotes,
+      cfg,
+      usage: this.usageCollector
+    });
     // 观察台词的新鲜度兜底只在离线（基础感知）时用：云端给的观察原样保留，由模型自己换说法
     if (result.source !== 'cloud') {
       result.note = ensureFreshNote(result.note, recentNotes, { category: result.category });
     }
-    const cloudReady = !!(cfg.model.apiKey && cfg.model.model && cfg.model.baseUrl);
-    if (cloudReady) {
-      this.usage.calls += 1;
-      if (result.source !== 'cloud') this.usage.failures += 1;
-      this.usage.lastAt = Date.now();
-      this.usage.lastSource = result.source;
-      this._saveUsage();
-    }
+    // 计数与 token 统一在 flushUsage 里落盘（analyze 的成败已由 analyzer 记入收集器）
+    this.flushUsage();
 
     const now = new Date();
     const evt = {

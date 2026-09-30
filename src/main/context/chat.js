@@ -7,6 +7,10 @@ const { personaSystemPrompt } = require('./persona');
 const calendar = require('./calendar');
 const { buildQuestionContext } = require('./builder');
 const { guardedFetch } = require('./net');
+const usage = require('./usage');
+
+// 进程内用量收集器：所有云端文本调用（问答/摘要/搭话/台词）都记一笔，由 ContextEngine 落盘。
+const usageCollector = usage.createUsageCollector();
 
 /** 底层调用：POST {baseUrl}/chat/completions，返回解析后的响应 JSON（支持 tools 等任意参数）。 */
 function mergeExtraBody(payload, cfg) {
@@ -14,7 +18,7 @@ function mergeExtraBody(payload, cfg) {
   return extra && typeof extra === 'object' ? { ...payload, ...extra } : payload;
 }
 
-async function chatCompletion(payload, cfg, { timeoutMs = 30000 } = {}) {
+async function chatCompletion(payload, cfg, { timeoutMs = 30000, source = 'chat' } = {}) {
   const base = String(cfg.model.baseUrl || '').replace(/\/+$/, '');
   const resp = await guardedFetch(
     `${base}/chat/completions`,
@@ -28,13 +32,16 @@ async function chatCompletion(payload, cfg, { timeoutMs = 30000 } = {}) {
   );
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
+    usageCollector.record({ source, usage: null, failed: true });
     throw new Error(`HTTP ${resp.status} ${text.slice(0, 160)}`);
   }
-  return resp.json();
+  const data = await resp.json();
+  usageCollector.record({ source, usage: data?.usage || null, failed: false });
+  return data;
 }
 
-async function cloudChat(messages, cfg, { timeoutMs = 30000, temperature = 0.5 } = {}) {
-  const data = await chatCompletion({ model: cfg.model.model, temperature, messages }, cfg, { timeoutMs });
+async function cloudChat(messages, cfg, { timeoutMs = 30000, temperature = 0.5, source = 'chat' } = {}) {
+  const data = await chatCompletion({ model: cfg.model.model, temperature, messages }, cfg, { timeoutMs, source });
   const content = data?.choices?.[0]?.message?.content;
   if (!content) throw new Error('云端返回为空');
   return String(content).trim();
@@ -125,7 +132,7 @@ async function cloudDaySummary(dateKey, events, cfg, dialogue) {
     },
     { role: 'user', content: `这一天的时间线：${JSON.stringify(timeline)}\n最近对话：\n${dialogueLines(dialogue, 6)}` }
   ];
-  return cloudChat(messages, cfg, { temperature: 0.4 });
+  return cloudChat(messages, cfg, { temperature: 0.4, source: 'summary' });
 }
 
 /** 某一天的摘要（日历里点开某天时使用）。 */
@@ -233,7 +240,7 @@ async function cloudAnswer(question, cfg, built, imageJpeg) {
     },
     { role: 'user', content: userContent }
   ];
-  return cloudChat(messages, cfg);
+  return cloudChat(messages, cfg, { source: 'ask' });
 }
 
 async function ask(question, { store, cfg, dialogue, summaries, captureNow }) {
@@ -274,7 +281,7 @@ async function cloudSummary(store, cfg, dialogue) {
     },
     { role: 'user', content: `今日记录：${JSON.stringify(today)}\n最近对话：\n${dialogueLines(dialogue, 8)}` }
   ];
-  return cloudChat(messages, cfg, { temperature: 0.4 });
+  return cloudChat(messages, cfg, { temperature: 0.4, source: 'summary' });
 }
 
 async function summary({ store, cfg, dialogue }) {
@@ -296,7 +303,7 @@ async function testModel(cfg) {
   if (!cfg?.model?.apiKey) return { ok: false, error: '未填写 API Key' };
   const t0 = Date.now();
   try {
-    const reply = await cloudChat([{ role: 'user', content: '只回复两个字：在的' }], cfg, { timeoutMs: 15000, temperature: 0 });
+    const reply = await cloudChat([{ role: 'user', content: '只回复两个字：在的' }], cfg, { timeoutMs: 15000, temperature: 0, source: 'test' });
     return { ok: true, latencyMs: Date.now() - t0, reply: reply.slice(0, 40) };
   } catch (err) {
     return { ok: false, error: String(err?.message || err).slice(0, 200), latencyMs: Date.now() - t0 };
@@ -315,5 +322,6 @@ module.exports = {
   recordsAnswer,
   bubbleChunks,
   cloudChat,
-  dialogueLines
+  dialogueLines,
+  usageCollector
 };

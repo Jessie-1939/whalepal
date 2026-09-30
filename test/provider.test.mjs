@@ -11,6 +11,17 @@ test('供应商预设包含阿里云百炼（Qwen）', () => {
   assert.deepEqual(b.extraBody, { modalities: ['text'], enable_thinking: false });
 });
 
+test('供应商预设包含 DeepSeek（deepseek-flash，视觉输入）', () => {
+  const d = MODEL_PRESETS.deepseek;
+  assert.ok(d, 'deepseek preset missing');
+  assert.equal(d.baseUrl, 'https://api.deepseek.com');
+  assert.equal(d.model, 'deepseek-flash');
+  // 预设关闭思考模式（省输出 token），且不得带百炼的 enable_thinking/modalities 参数
+  assert.deepEqual(d.extraBody, { thinking: { type: 'disabled' } });
+  assert.equal(d.extraBody.enable_thinking, undefined);
+  assert.equal(d.extraBody.modalities, undefined);
+});
+
 test('mergeExtraBody：预设附加参数合并进请求体且不污染原对象', () => {
   const payload = { model: 'm', messages: [] };
   const merged = chat.mergeExtraBody(payload, { model: { extraBody: { modalities: ['text'] } } });

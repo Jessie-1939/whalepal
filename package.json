@@ -8,6 +8,7 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
+    "start:ca": "set NODE_OPTIONS=--use-system-ca && electron .",
     "test": "node --test \"test/*.test.mjs\"",
     "check": "node scripts/check-syntax.mjs",
     "privacy": "node scripts/privacy-audit.mjs",

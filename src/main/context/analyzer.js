@@ -168,7 +168,7 @@ function normalizeCloudResult(parsed, { title = '', process = '' } = {}) {
 }
 
 /** 调用云端视觉模型（OpenAI 兼容）。失败时抛出错误，由 analyze() 统一降级。 */
-async function cloudAnalyze({ jpegBase64, title = '', process = '', texts = [], recentNotes = [], cfg, timeoutMs = 45000 }) {
+async function cloudAnalyze({ jpegBase64, title = '', process = '', texts = [], recentNotes = [], cfg, timeoutMs = 45000, usage = null }) {
   const base = String(cfg.model.baseUrl || '').replace(/\/+$/, '');
   const textExcerpt = Array.isArray(texts) && texts.length
     ? `窗口文本摘录（来自无障碍树的精确文本，可作为 detail/entities 的依据）：${texts.slice(0, 30).join(' | ').slice(0, 700)}`
@@ -210,6 +210,10 @@ async function cloudAnalyze({ jpegBase64, title = '', process = '', texts = [], 
     throw new Error(`HTTP ${resp.status} ${text.slice(0, 160)}`);
   }
   const data = await resp.json();
+  // token 用量记账（只记数字，不记内容）；拿不到 usage 的网关就记 0
+  if (usage && typeof usage.record === 'function') {
+    usage.record({ source: 'analyze', usage: data?.usage || null, failed: false });
+  }
   const content = data?.choices?.[0]?.message?.content ?? '';
   const parsed = parseJsonLoose(content);
   if (!parsed) throw new Error('云端返回无法解析为 JSON');
@@ -217,12 +221,15 @@ async function cloudAnalyze({ jpegBase64, title = '', process = '', texts = [], 
 }
 
 /** 统一入口：有 Key 走云端视觉模型；无 Key / 失败 → 基础感知（source 标注 cloud/basic）。 */
-async function analyze({ jpeg, title = '', process = '', texts = [], recentNotes = [], cfg }) {
+async function analyze({ jpeg, title = '', process = '', texts = [], recentNotes = [], cfg, usage = null }) {
   const cloudReady = !!(cfg?.model?.apiKey && cfg?.model?.model && cfg?.model?.baseUrl);
   if (cloudReady) {
     try {
-      return await cloudAnalyze({ jpegBase64: jpeg.toString('base64'), title, process, texts, recentNotes, cfg });
+      return await cloudAnalyze({ jpegBase64: jpeg.toString('base64'), title, process, texts, recentNotes, cfg, usage });
     } catch (err) {
+      if (usage && typeof usage.record === 'function') {
+        usage.record({ source: 'analyze', usage: null, failed: true });
+      }
       const fallback = basicAnalyze({ title, process, texts });
       fallback.cloudError = String(err?.message || err).slice(0, 200);
       return fallback;

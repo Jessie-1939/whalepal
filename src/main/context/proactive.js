@@ -125,7 +125,7 @@ async function decideWithModel({ cfg, store, dialogue, now = new Date(), trial =
         tool_choice: 'auto'
       },
       cfg,
-      { timeoutMs: 20000 }
+      { timeoutMs: 20000, source: 'proactive' }
     );
     const call = data?.choices?.[0]?.message?.tool_calls?.[0];
     if (!call || call.function?.name !== 'send_message') {
@@ -172,7 +172,7 @@ async function generateTrialLine({ cfg, store, dialogue, now = new Date(), memor
       content: `最近事件：${JSON.stringify(recentEvents)}${memory ? `\n最近在忙：${memory}` : ''}\n最近对话：\n${lines.join('\n') || '（暂无）'}\n现在时间：${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
     }
   ];
-  const text = await cloudChat(messages, cfg, { temperature: 0.8, timeoutMs: 20000 });
+  const text = await cloudChat(messages, cfg, { temperature: 0.8, timeoutMs: 20000, source: 'proactive' });
   return String(text).trim().replace(/^["'“”]+|["'“”]+$/g, '').slice(0, 80);
 }
 

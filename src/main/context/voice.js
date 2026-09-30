@@ -106,7 +106,8 @@ async function composeLine({ kind = '', cfg, store, dialogue, fallback = '', now
   try {
     const text = await cloudChat(buildVoiceMessages({ kind, cfg, store, dialogue, now: new Date(now) }), cfg, {
       temperature: 0.95,
-      timeoutMs: 12000
+      timeoutMs: 12000,
+      source: 'voice'
     });
     const clean = String(text || '').trim().replace(/^["'“”]+|["'“”]+$/g, '').slice(0, 60);
     if (!clean) return { text: local, source: 'local' };

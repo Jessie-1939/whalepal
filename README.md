@@ -104,11 +104,28 @@ Windows 想要桌面图标和开机自启：`powershell -ExecutionPolicy Bypass 
 | 预设 | 说明 |
 | --- | --- |
 | 阿里云百炼（Qwen） | 默认预设，`qwen3.8-omni-flash`（OpenAI 兼容模式，已默认关闭思考模式：单次约 1 秒） |
+| DeepSeek | `deepseek-flash`（原生视觉输入，1M 上下文；预设关闭思考模式：实测 1.7s / 约 1.4k token 一次屏幕理解） |
 | Doubao（火山方舟） | `doubao-seed-1-6-flash` 系列 |
 | OpenAI | `gpt-4o-mini` 等 |
 | 自定义 | 任意 OpenAI 兼容端点（含本地网关，http 仅允许 localhost） |
 
-API Key 只保存在本机 `data/config.json`（被 git 忽略，界面不回显）。
+API Key 只保存在本机 `data/config.json`（被 git 忽略，界面不回显）。用量记账在 `data/usage.json`：
+按天记录调用次数与 token（输入 / 输出 / 缓存命中），设置页「数据」与「云端模型」都能看到——
+想换更便宜的模型时，先看这里再决定。
+
+<details>
+<summary>装了杀毒软件 / 公司代理，云端调用报「certificate chain」怎么办？</summary>
+
+Kaspersky / ESET / 360 这类软件会重签 HTTPS 证书（中间人），Windows 信任它、但 Node/Electron
+不认识这张根证书，于是所有云端调用都会失败。两种修法（都不改系统设置）：
+
+- 用 `npm run start:ca` 启动（内部给 Electron 加 `--use-system-ca`：直接采用 Windows 信任库）；
+- 或双击 `启动鲸伴.vbs`（已内置上面的开关，并在首次启动时把系统根证书导出到 `data/tls/windows-roots.pem` 兜底）。
+
+也可以单独导出：`pwsh -File scripts/export-system-ca.ps1`。
+导出的 PEM 只在 `data/` 内（已被 git 忽略），不联网、不装证书。
+
+</details>
 
 ## 隐私承诺（硬保证）
 

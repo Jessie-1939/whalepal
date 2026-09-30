@@ -34,6 +34,14 @@
     return `${(v / 1024 / 1024 / 1024).toFixed(2)} GB`;
   }
 
+  /** token 数可读化：1.2k / 34.5k / 1.02M。 */
+  function fmtTokens(n) {
+    const v = Math.max(0, Number(n) || 0);
+    if (v < 1000) return String(Math.round(v));
+    if (v < 1e6) return `${(v / 1000).toFixed(1)}k`;
+    return `${(v / 1e6).toFixed(2)}M`;
+  }
+
   // 主动搭话的沉默原因（与 src/main/context/proactive.js 的门控一一对应）
   const PROACTIVE_REASONS = {
     disabled: '主动搭话已关闭',
@@ -405,6 +413,10 @@
         ['云端失败降级', usage.failures || 0],
         ['连续忙碌（分钟）', s.busyMinutes || 0]
       ];
+      const tokens = usage.totals || null;
+      if (tokens && Number(tokens.calls) > 0) {
+        items.splice(4, 0, ['云端累计 token', fmtTokens(tokens.prompt + tokens.completion)]);
+      }
       for (const [label, value] of items) {
         const div = document.createElement('div');
         div.className = 'item';
@@ -416,7 +428,9 @@
         div.appendChild(b);
         $('#d-stats').appendChild(div);
       }
-      $('#m-usage').textContent = `云端调用：${usage.calls || 0} 次，失败降级：${usage.failures || 0} 次`;
+      $('#m-usage').textContent = tokens && Number(tokens.calls) > 0
+        ? `云端调用：${usage.calls || 0} 次（失败降级 ${usage.failures || 0} 次）· 累计 ${fmtTokens(tokens.prompt + tokens.completion)} token（输入 ${fmtTokens(tokens.prompt)} / 输出 ${fmtTokens(tokens.completion)}，其中缓存命中 ${fmtTokens(tokens.cached)}）`
+        : `云端调用：${usage.calls || 0} 次，失败降级：${usage.failures || 0} 次`;
 
       // 记忆体积：把「长期记忆用文本、像素只是原料」的结论变成可见数字
       const st = s.storage;

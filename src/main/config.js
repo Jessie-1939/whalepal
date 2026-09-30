@@ -9,6 +9,15 @@ const MODEL_PRESETS = {
     model: 'qwen3.8-omni-flash',
     extraBody: { modalities: ['text'], enable_thinking: false }
   },
+  // DeepSeek 官方 API：deepseek-flash（= DeepSeek-V4.1-Flash）原生支持图片输入，1M 上下文。
+  // 预设关掉思考模式：桌宠的屏幕理解是轻量任务，思考只烧输出 token 且慢 5 倍
+  // （实测同一张截图：关思考 ~1.2s / 120 输出 token，默认思考 ~5.6s / 925 输出 token）。
+  // 注意：DeepSeek 不吃百炼的 enable_thinking/modalities 参数，别照搬。
+  deepseek: {
+    baseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-flash',
+    extraBody: { thinking: { type: 'disabled' } }
+  },
   doubao: { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-1-6-flash-250828' },
   openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
   custom: {}
