@@ -126,6 +126,15 @@ function createPetWindow({ preloadPath, htmlPath, position }) {
     }
   });
   win.loadFile(htmlPath);
+  // 自检：把渲染层的菜单量出来（WHALEPAL_DEBUG_MENU=1），用于排查菜单被窗口裁掉的问题
+  if (process.env.WHALEPAL_DEBUG_MENU) {
+    win.webContents.on('console-message', (_e, _level, message) => {
+      if (String(message).includes('MENU_METRICS')) console.log(String(message));
+    });
+    win.webContents.once('did-finish-load', () => {
+      win.webContents.executeJavaScript('window.__WHALEPAL_DEBUG_MENU__ = true').catch(() => {});
+    });
+  }
   win.once('ready-to-show', () => win.showInactive());
   return win;
 }

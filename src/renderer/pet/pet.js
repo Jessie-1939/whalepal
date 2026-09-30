@@ -609,6 +609,23 @@
   });
 
   // ---------- 右键菜单 ----------
+  /** 一级 / 二级菜单页切换（二级页承载"看看日历、打开设置、回到原位、隐藏"等低频项）。 */
+  function showMenuView(view) {
+    for (const v of menu.querySelectorAll('.menu-view')) v.hidden = v.dataset.view !== view;
+  }
+
+  /**
+   * 把菜单放进视口：宠物窗口只有 300×350，贴着屏幕边时菜单很容易超出窗口被系统裁掉。
+   * 这里以「面板完整可见」为第一优先，超出就贴边（配合 CSS 的 max-height 兜底）。
+   */
+  function placeMenu(x, y, w, h) {
+    const pad = 6;
+    const left = Math.max(pad, Math.min(x, W() - w - pad));
+    const top = Math.max(pad, Math.min(y, H() - h - pad));
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
+
   function doMenuAction(action) {
     markInteraction();
     switch (action) {
@@ -686,18 +703,32 @@
 
   pet.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    showMenuView('main');
     menu.classList.add('show');
     const mw = menu.offsetWidth || 160;
     const mh = menu.offsetHeight || 280;
-    menu.style.left = Math.min(Math.max(6, e.clientX), W() - mw - 6) + 'px';
-    menu.style.top = Math.min(Math.max(6, e.clientY), H() - mh - 6) + 'px';
+    placeMenu(e.clientX, e.clientY, mw, mh);
     updateIgnore(lastMouse.x, lastMouse.y);
   });
 
   menu.addEventListener('click', (e) => {
+    if (e.target.closest('[data-secondary]')) {
+      // 切到二级页后面板高度会变，重新贴着视口放一次，避免换页后被裁
+      showMenuView('more');
+      placeMenu(lastMouse.x, lastMouse.y, menu.offsetWidth || 160, menu.offsetHeight || 200);
+      updateIgnore(lastMouse.x, lastMouse.y);
+      return;
+    }
+    if (e.target.closest('[data-back]')) {
+      showMenuView('main');
+      placeMenu(lastMouse.x, lastMouse.y, menu.offsetWidth || 160, menu.offsetHeight || 200);
+      updateIgnore(lastMouse.x, lastMouse.y);
+      return;
+    }
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     menu.classList.remove('show');
+    showMenuView('main');
     doMenuAction(btn.dataset.action);
     updateIgnore(lastMouse.x, lastMouse.y);
   });
@@ -724,6 +755,42 @@
     // 低频心跳（1s）：待机小动作与散步调度；真正需要逐帧时再挂 rAF
     setInterval(lowFreqTick, 1000);
     ensureAnimation();
+
+    // 自检（WHALEPAL_DEBUG_MENU=1）：把右键菜单量出来，用于排查"菜单被窗口裁掉"这类布局问题
+    // （=2 时把菜单留在屏幕上，配合截图肉眼验收）
+    const debugMenu = window.__WHALEPAL_DEBUG_MENU__;
+    if (debugMenu) {
+      setTimeout(() => {
+        menu.classList.add('show');
+        menu.style.left = '6px';
+        menu.style.top = '6px';
+        for (const view of ['main', 'more']) {
+          showMenuView(view);
+          const rect = menu.getBoundingClientRect();
+          const box = { w: Math.round(rect.width), h: Math.round(rect.height) };
+          console.log(
+            `MENU_METRICS ${JSON.stringify({
+              view,
+              viewport: [W(), H()],
+              menu: box,
+              fits: box.h <= H() - 12 && box.w <= W() - 12,
+              items: menu.querySelectorAll('button:not([hidden])').length
+            })}`
+          );
+        }
+        showMenuView('main');
+        if (debugMenu >= 2) {
+          // 模拟"贴着窗口底边右键"：菜单应自动上移、保持完整可见
+          menu.classList.remove('show');
+          lastMouse.x = 150;
+          lastMouse.y = 300;
+          const evt = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 150, clientY: 300 });
+          pet.dispatchEvent(evt);
+          if (debugMenu === 3) showMenuView('more');
+          api.invoke('pet:set-ignore-mouse', false).catch(() => {});
+        }
+      }, 800);
+    }
 
     const hour = new Date().getHours();
     if (!isQuiet(hour)) {

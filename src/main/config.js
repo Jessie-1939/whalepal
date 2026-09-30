@@ -93,14 +93,34 @@ function clamp(value, min, max) {
 class ConfigStore {
   constructor(file) {
     this.file = file;
+    this.mtimeMs = 0;
     this.data = this._load();
   }
 
+  /** 读取磁盘上的配置；顺带记下修改时间，用于识别"应用运行期间被外部改过"。 */
   _load() {
     try {
+      this.mtimeMs = fs.statSync(this.file).mtimeMs;
       return deepMerge(DEFAULTS, JSON.parse(fs.readFileSync(this.file, 'utf8')));
     } catch {
+      this.mtimeMs = 0;
       return clone(DEFAULTS);
+    }
+  }
+
+  /**
+   * 落盘前检查：如果应用运行期间磁盘上的配置被外部改过（手动编辑、脚本切换供应商……），
+   * 先把它读回来再叠加本次改动，而不是拿内存里的旧值整个覆盖 —— 否则关窗口那一刻
+   * 会把外部改动吞掉（本机实测踩过：切好的供应商被退出时写回旧值）。
+   */
+  _reloadIfChangedOnDisk() {
+    try {
+      const diskMtime = fs.statSync(this.file).mtimeMs;
+      if (this.mtimeMs && diskMtime === this.mtimeMs) return;
+      const disk = JSON.parse(fs.readFileSync(this.file, 'utf8'));
+      this.data = deepMerge(this.data, disk);
+    } catch {
+      // 文件不存在 / 正在被写坏：保持内存值，后面直接写覆盖
     }
   }
 
@@ -109,10 +129,16 @@ class ConfigStore {
   }
 
   update(patch) {
+    this._reloadIfChangedOnDisk();
     this.data = deepMerge(this.data, patch || {});
     // 兜底约束：避免误配置导致高频截屏
     this.data.context.intervalSec = clamp(this.data.context.intervalSec, 15, 3600);
     fs.writeFileSync(this.file, JSON.stringify(this.data, null, 2), 'utf8');
+    try {
+      this.mtimeMs = fs.statSync(this.file).mtimeMs;
+    } catch {
+      this.mtimeMs = 0;
+    }
     return this.get();
   }
 }

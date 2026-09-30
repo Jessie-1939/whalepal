@@ -394,8 +394,27 @@ async function bootstrap() {
           })`
         );
         console.log('RENDERER ' + probe);
-        const img = await petWin.webContents.capturePage();
-        fs.writeFileSync(path.join(DATA_ROOT, 'pet-capture.png'), img.toPNG());
+        try {
+          const img = await petWin.webContents.capturePage();
+          fs.writeFileSync(path.join(DATA_ROOT, 'pet-capture.png'), img.toPNG());
+        } catch (err) {
+          // 透明置顶窗口偶发 "display surface not available"：退回"逻辑分辨率桌面截图 + 裁到桌宠窗口"
+          // （本机实测：2560×1440 @150% 下 desktopCapturer 返回的就是 1707×960 逻辑分辨率，与窗口坐标 1:1）
+          console.log('CAPTURE_FALLBACK ' + String(err?.message || err).slice(0, 80));
+          const wa = screen.getPrimaryDisplay().workAreaSize;
+          const b = petWin.getBounds();
+          const full = await capturePrimaryScreen({ width: wa.width, height: wa.height });
+          if (full) {
+            const size = full.image.getSize();
+            const cropped = full.image.crop({
+              x: Math.max(0, Math.round(b.x)),
+              y: Math.max(0, Math.round(b.y)),
+              width: Math.min(b.width, size.width - Math.max(0, Math.round(b.x))),
+              height: Math.min(b.height, size.height - Math.max(0, Math.round(b.y)))
+            });
+            fs.writeFileSync(path.join(DATA_ROOT, 'pet-capture.png'), cropped.toPNG());
+          }
+        }
         const shot = await capturePrimaryScreen({ width: 1280, height: 720 });
         if (shot) fs.writeFileSync(path.join(DATA_ROOT, 'debug-desktop.jpg'), shot.image.toJPEG(80));
         if (process.env.WHALEPAL_DEBUG_SETTINGS === '1') {
@@ -438,6 +457,24 @@ async function bootstrap() {
   }
 
   // README 动图素材：WHALEPAL_DEBUG_FRAMES=<帧数> 时按固定间隔抓取桌宠窗口内容帧
+  // 布局自检：WHALEPAL_DEBUG_FULLSHOT=1 时抓一张逻辑分辨率整屏（用于核对菜单/气泡有没有被窗口裁掉）
+  if (process.env.WHALEPAL_DEBUG_FULLSHOT === '1') {
+    setTimeout(async () => {
+      try {
+        const wa = require('electron').screen.getPrimaryDisplay().workAreaSize;
+        const shot = await capturePrimaryScreen({ width: wa.width, height: wa.height });
+        if (shot) {
+          const file = path.join(DATA_ROOT, 'fullshot.png');
+          fs.writeFileSync(file, shot.image.toPNG());
+          console.log('FULLSHOT ' + JSON.stringify({ file, size: shot.image.getSize(), pet: petWin.getBounds() }));
+        }
+      } catch (err) {
+        console.log('FULLSHOT_ERROR ' + String(err?.message || err).slice(0, 120));
+      }
+      setTimeout(() => app.quit(), 800);
+    }, 4200);
+  }
+
   if (process.env.WHALEPAL_DEBUG_FRAMES) {
     const count = Math.max(2, Number(process.env.WHALEPAL_DEBUG_FRAMES) || 12);
     const intervalMs = Number(process.env.WHALEPAL_DEBUG_FRAME_MS) || 350;

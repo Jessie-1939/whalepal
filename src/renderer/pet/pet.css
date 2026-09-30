@@ -218,6 +218,8 @@ body[data-pose="sleep"] #sleep-label {
   position: absolute;
   z-index: 7;
   min-width: 166px;
+  max-height: calc(100vh - 12px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 6px;
@@ -249,13 +251,23 @@ body[data-pose="sleep"] #sleep-label {
   border: 0;
   background: transparent;
   text-align: left;
-  padding: 9px 11px;
+  padding: 7px 11px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text);
   border-radius: var(--r-thumb);
   cursor: pointer;
   transition: background 0.15s var(--ease-out-quart), transform 0.1s ease-out;
+}
+
+/* 二级页与一级页共用同一个玻璃面板，切换时不跳尺寸 */
+.menu-view[hidden] {
+  display: none;
+}
+
+.menu-view {
+  display: flex;
+  flex-direction: column;
 }
 
 #menu button:hover {
@@ -268,7 +280,7 @@ body[data-pose="sleep"] #sleep-label {
 
 .menu-sep {
   height: 1px;
-  margin: 5px 8px;
+  margin: 4px 8px;
   background: var(--hairline);
 }
 
